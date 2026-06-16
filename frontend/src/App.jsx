@@ -1,5 +1,5 @@
 import React from "react";
-import { HashRouter as Router, Routes, Route, Outlet } from "react-router-dom";
+import { HashRouter as Router, Routes, Route, Outlet, Navigate } from "react-router-dom";
 import Finance from "./components/FinancePortal/Finance";
 import Bursar from "./components/BursarPortal/Bursar";
 import Login from "./components/Authentication/Login";
@@ -8,24 +8,30 @@ import SysAdmin from "./components/SystemAdminPortal/SystemAdmin";
 import { AuthProvider, useAuth } from "./components/Authentication/AuthContext";
 import ProtectedRoute from "./components/Authentication/ProtectedRoute";
 import Logout from "./components/Authentication/Logout";
-import Sidebar from "./components/sidebars/Sidebar"; // This is your new unified sidebar
 import FinanceSidebar from "./components/sidebars/FinanceSidebar";
 import BursarSidebar from "./components/sidebars/BursarSidebar";
 import RegisterSidebar from "./components/sidebars/RegisterSidebar";
 import SysAdminSidebar from "./components/sidebars/SysAdminSidebar";
 import HrSidebar from "./components/sidebars/HrSidebar";
 
-// We define the Layout here so we don't need a separate file
 const Layout = () => {
-    // FIX: Use the actual user state from your context
     const { user, loading } = useAuth(); 
     
-    // While checking auth, show nothing or a loader
-    if (loading || !user) {
-      return null;
+    if (loading) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <div style={{ textAlign: 'center' }}>
+                    <img src="/logo.jpeg" alt="ElimuHub" style={{ width: '80px' }} />
+                    <p>Loading...</p>
+                </div>
+            </div>
+        );
     }
-
     
+    // If not logged in, redirect to login
+    if (!user) {
+        return <Navigate to="/Login" replace />;
+    }
     
     const role = user?.role;
 
@@ -55,12 +61,12 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          {/* Public Routes: No Sidebar here */}
+          {/* Public Routes - No Layout applied */}
           <Route path="/" element={<Login />} />
           <Route path="/Login" element={<Login />} />
           <Route path="/Logout" element={<Logout />} />
 
-          {/* Protected Routes: All share the same Sidebar Layout */}
+          {/* Protected Routes - Layout applied */}
           <Route element={<Layout />}>
             <Route path="/RegisterPortal/*" element={
               <ProtectedRoute allowedRoles={['registrar']}>
@@ -84,8 +90,8 @@ function App() {
             } />
           </Route>
 
-          {/* Catch-all: Redirect back to login */}
-          <Route path="*" element={<Login />} />
+          {/* Catch-all route */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
     </AuthProvider>
