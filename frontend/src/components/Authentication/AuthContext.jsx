@@ -20,21 +20,20 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  console.log('AuthProvider - Initial render');
+  
 
   useEffect(() => {
-    console.log('AuthProvider - useEffect running');
+    
     
     const storedUser = localStorage.getItem('user');
     const token = localStorage.getItem('token');
     
-    console.log('AuthProvider - Token exists:', !!token);
-    console.log('AuthProvider - Stored user exists:', !!storedUser);
+    
     
     if (token && storedUser) {
       try {
         const userData = JSON.parse(storedUser);
-        console.log('AuthProvider - Setting user from localStorage:', userData);
+        
         setUser(userData);
       } catch (e) {
         console.error('AuthProvider - Error parsing stored user:', e);
@@ -46,15 +45,15 @@ export const AuthProvider = ({ children }) => {
     }
     
     setLoading(false);
-    console.log('AuthProvider - Loading set to false');
+    
   }, []);
 
   const login = async (email, password) => {
-    console.log('AuthProvider - Login called');
+    
     setError(null);
     try {
       const url = `${API_BASE_URL}/api/auth/login/`;
-      console.log('AuthProvider - Login URL:', url);
+      
       
       const response = await fetch(url, {
         method: 'POST',
@@ -65,7 +64,7 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ email, password }),
       });
       
-      console.log('AuthProvider - Login response status:', response.status);
+      
       
       const text = await response.text();
       let data;
@@ -98,7 +97,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(userData));
       
       setUser(userData);
-      console.log('AuthProvider - Login successful, user:', userData);
+      
       return { success: true, user: userData };
       
     } catch (err) {
@@ -110,11 +109,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    console.log('AuthProvider - Logout called');
+    
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
-    console.log('AuthProvider - Logout complete');
+    
   };
 
   const getAuthHeaders = () => {
@@ -140,7 +139,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: !!user,
   };
 
-  console.log('AuthProvider - Rendering with state:', { user: !!user, loading });
+  
 
   return (
     <AuthContext.Provider value={value}>

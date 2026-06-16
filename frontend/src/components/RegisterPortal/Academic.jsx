@@ -79,7 +79,7 @@ const Academic = () => {
   };
 
   const handleGenerateReport = async () => {
-    console.log("Button clicked! Filters:", reportFilters);
+    
 
     if (!reportFilters.class_id || !reportFilters.term) {
       alert("Please select both a class and a term.");
@@ -89,7 +89,7 @@ const Academic = () => {
     setLoading(true);
     try {
       const url = `${API_BASE_URL}/api/cbe-report-cards/batch_generate/`;
-      console.log("Sending POST to:", url);
+      
 
       const response = await axios.post(url, reportFilters, { 
         headers: getAuthHeaders() 

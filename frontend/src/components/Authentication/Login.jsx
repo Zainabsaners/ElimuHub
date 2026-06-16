@@ -7,7 +7,7 @@ import { Loader2 } from 'lucide-react';
 const schoolName = "ElimuHub";
 
 const Login = () => {
-  console.log("LOGIN COMPONENT MOUNTED");
+  
   const [credentials, setCredentials] = useState({
     email: '',
     password: ''
