@@ -165,7 +165,7 @@ class StudentAdmin(admin.ModelAdmin, ExportCsvMixin):
             'fields': ('address', 'city', 'country', 'phone', 'email')
         }),
         ('Academic Information', {
-            'fields': ('current_class', 'current_section', 'stream', 'roll_number', 
+            'fields': ('current_class', 'stream', 'roll_number', 
                       'admission_date', 'admission_type')
         }),
         ('Status', {
@@ -205,7 +205,7 @@ class StudentAdmin(admin.ModelAdmin, ExportCsvMixin):
     restore_students.short_description = "Restore selected students"
 
 class StudentAcademicHistoryAdmin(admin.ModelAdmin):
-    list_display = ('student', 'academic_year', 'class_id', 'section', 
+    list_display = ('student', 'academic_year', 'class_id', 'stream',
                    'promoted', 'promotion_date')
     list_filter = ('academic_year', 'class_id', 'promoted')
     search_fields = ('student__admission_no', 'student__first_name', 'student__last_name')

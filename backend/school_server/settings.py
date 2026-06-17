@@ -84,12 +84,12 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  # React development server
     "http://127.0.0.1:5173",
-    "https://schoolerp1.vercel.app",
-    "https://*.vercel.app"
+    "https://elimu-hub-one.vercel.app",
+    
     
     # Add your production frontend URL here
 ]
-CSRF_TRUSTED_ORIGINS = ['https://*.onrender.com', 'https://*.vercel.app', "https://*.vercel.app", 'http://localhost:5173', 'http://127.0.0.1:5173']
+CSRF_TRUSTED_ORIGINS = ['https://*.onrender.com', 'https://elimu-hub-one.vercel.app', 'http://localhost:5173', 'http://127.0.0.1:5173']
 
 
 

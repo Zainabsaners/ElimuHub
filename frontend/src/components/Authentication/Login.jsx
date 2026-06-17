@@ -1,4 +1,3 @@
-// Login.jsx (Cleaned & Optimized)
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
@@ -16,7 +15,7 @@ const Login = () => {
   const { user, login, error: authError } = useAuth();
   const navigate = useNavigate();
 
-  // Helper function to redirect based on role
+  
   const redirectByRole = (role) => {
     const roleRoutes = {
       'teacher': '/TeacherPortal',
@@ -36,7 +35,7 @@ const Login = () => {
     navigate(route);
   };
 
-  // Redirect if already logged in
+  
   useEffect(() => {
     if (user) {
       redirectByRole(user.role);

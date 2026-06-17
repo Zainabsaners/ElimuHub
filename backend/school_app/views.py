@@ -2243,7 +2243,6 @@ class DownloadTemplateView(APIView):
                 'phone': '0712345678',
                 'email': 'john@example.com',
                 'current_class': '1',  # Class ID
-                'current_section': 'A',
                 'stream': 'Science',
                 'roll_number': '12',
                 'admission_date': timezone.now().date().isoformat(),
