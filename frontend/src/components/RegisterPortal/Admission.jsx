@@ -16,7 +16,7 @@ function Admission() {
     admission_no: '', first_name: '', middle_name: '', last_name: '',
     date_of_birth: '', gender: '', nationality: 'Kenyan', religion: '',
     blood_group: '', address: '', city: '', country: 'Kenya',
-    phone: '', email: '', current_class: '', current_section: '',
+    phone: '', email: '', current_class: '', 
     admission_date: new Date().toISOString().split('T')[0],
     admission_type: 'Regular', father_name: '', father_phone: '',
     mother_name: '', mother_phone: '', guardian_name: '',
@@ -76,7 +76,7 @@ function Admission() {
       admission_no: nextAdm, first_name: '', middle_name: '', last_name: '',
       date_of_birth: '', gender: '', nationality: 'Kenyan', religion: '',
       blood_group: '', address: '', city: '', country: 'Kenya',
-      phone: '', email: '', current_class: '', current_section: '',
+      phone: '', email: '', current_class: '', 
       admission_date: new Date().toISOString().split('T')[0],
       admission_type: 'Regular', father_name: '', father_phone: '',
       mother_name: '', mother_phone: '', guardian_name: '',
@@ -154,7 +154,7 @@ function Admission() {
           first_name: '', middle_name: '', last_name: '',
           date_of_birth: '', gender: '',
           phone: '', email: '', address: '', city: '',
-          current_class: '', current_section: '',
+          current_class: '', stream: '',
           father_name: '', father_phone: '',
           mother_name: '', mother_phone: '',
           guardian_name: '', guardian_relation: '', guardian_phone: '',
@@ -516,13 +516,13 @@ function Admission() {
               {/* Section */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                  Section
+                  Stream
                 </label>
                 <input 
-                  name="current_section" 
-                  value={formData.current_section} 
+                  name="stream" 
+                  value={formData.stream} 
                   onChange={handleInputChange} 
-                  placeholder="A, B, C"
+                  placeholder="winners"
                   className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none"
                 />
               </div>

@@ -155,7 +155,7 @@ function StudentManagement() {
       email: student.email,
       address: student.address,
       current_class: student.current_class,
-      current_section: student.current_section,
+      stream: student.stream,
       roll_number: student.roll_number,
       status: student.status,
       guardian_name: student.guardian_name,
@@ -290,7 +290,7 @@ function StudentManagement() {
         'Gender': student.gender,
         'Date of Birth': student.date_of_birth,
         'Class': classes.find(c => c.id == student.current_class)?.class_name || 'Not assigned',
-        'Section': student.current_section || 'N/A',
+        'Stream': student.stream || 'N/A',
         'Roll Number': student.roll_number || 'N/A',
         'Phone': student.phone || 'N/A',
         'Email': student.email || 'N/A',
@@ -681,7 +681,7 @@ function StudentManagement() {
                       <td className="px-6 py-4">
                         <div className="space-y-2">
                           <div><span className="text-sm text-gray-600">Class:</span> <span className="font-medium">{classes.find(c => c.id == student.current_class)?.class_name || 'Not assigned'}</span></div>
-                          <div><span className="text-sm text-gray-600">Section:</span> <span>{student.current_section || 'N/A'}</span></div>
+                          <div><span className="text-sm text-gray-600">Stream:</span> <span>{student.stream || 'N/A'}</span></div>
                           <div><span className="text-sm text-gray-600">Roll:</span> <span>{student.roll_number || 'N/A'}</span></div>
                           <div><span className="text-sm text-gray-600">Phone:</span> <span>{student.phone || 'N/A'}</span></div>
                         </div>
@@ -845,7 +845,6 @@ function StudentManagement() {
                     <h5 className="font-semibold text-gray-700 mb-3">Academic Information</h5>
                     <div className="space-y-2">
                       <div className="flex justify-between"><span className="text-sm text-gray-600">Current Class:</span><span className="font-medium">{classes.find(c => c.id == selectedStudent.current_class)?.class_name || 'Not assigned'}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Section:</span><span>{selectedStudent.current_section || 'N/A'}</span></div>
                       <div className="flex justify-between"><span className="text-sm text-gray-600">Stream:</span><span>{selectedStudent.stream || 'N/A'}</span></div>
                       <div className="flex justify-between"><span className="text-sm text-gray-600">Roll Number:</span><span>{selectedStudent.roll_number || 'N/A'}</span></div>
                       <div className="flex justify-between"><span className="text-sm text-gray-600">Admission Type:</span><span className="capitalize">{selectedStudent.admission_type}</span></div>
@@ -1031,8 +1030,8 @@ function StudentManagement() {
                         {classes.map(cls => (<option key={cls.id} value={cls.id}>{cls.class_name} ({cls.class_code})</option>))}
                       </select>
                     </div>
-                    <div><label className="block text-sm font-medium text-gray-700 mb-2">Section</label>
-                      <input type="text" name="current_section" value={editFormData.current_section} onChange={handleEditInputChange} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., A, B, C" />
+                    <div><label className="block text-sm font-medium text-gray-700 mb-2">Stream</label>
+                      <input type="text" name="stream" value={editFormData.stream} onChange={handleEditInputChange} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., winners, runners" />
                     </div>
                     <div><label className="block text-sm font-medium text-gray-700 mb-2">Roll Number</label>
                       <input type="number" name="roll_number" value={editFormData.roll_number} onChange={handleEditInputChange} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />

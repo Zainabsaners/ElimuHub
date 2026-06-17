@@ -228,7 +228,6 @@ class Student(models.Model):
     
     # Academic Information
     current_class = models.ForeignKey('Class', on_delete=models.SET_NULL, null=True, related_name='current_students')
-    current_section = models.CharField(max_length=10, blank=True, null=True)
     stream = models.CharField(max_length=20, blank=True, null=True)
     roll_number = models.IntegerField(blank=True, null=True)
     admission_date = models.DateField(default=timezone.now)
@@ -311,9 +310,8 @@ class Student(models.Model):
 
 class StudentAcademicHistory(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='academic_history')
-    academic_year = models.CharField(max_length=50)  # Format: 2024-2025
+    academic_year = models.CharField(max_length=50)  
     class_id = models.ForeignKey('Class', on_delete=models.CASCADE)
-    section = models.CharField(max_length=10, blank=True, null=True)
     stream = models.CharField(max_length=20, blank=True, null=True)
     roll_number = models.IntegerField(blank=True, null=True)
     class_teacher = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
