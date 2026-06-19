@@ -14,6 +14,8 @@ const UserManagement = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserForm, setShowUserForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -37,6 +39,21 @@ const UserManagement = () => {
     role: '',
     department: '',
     password: '',
+    isStaff: false,
+    isSuperuser: false,
+    isActive: true,
+    mfaEnabled: false
+  });
+
+  // Edit user form state
+  const [editUserData, setEditUserData] = useState({
+    username: '',
+    email: '',
+    firstName: '',
+    lastName: '',
+    phone: '',
+    role: '',
+    department: '',
     isStaff: false,
     isSuperuser: false,
     isActive: true,
@@ -81,7 +98,6 @@ const UserManagement = () => {
         throw new Error('Server returned invalid data format');
       }
       
-      // Transform data to match frontend format
       const transformedUsers = usersArray.map(user => ({
         id: user.id,
         username: user.username,
@@ -192,6 +208,73 @@ const UserManagement = () => {
     }
 
     return { isValid: true, message: 'Strong password' };
+  };
+
+  // Handle edit user
+  const handleEditUser = (user) => {
+    setEditingUser(user);
+    setEditUserData({
+      username: user.username,
+      email: user.email,
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      phone: user.phone || '',
+      role: user.role || '',
+      department: user.department || '',
+      isStaff: user.isStaff || false,
+      isSuperuser: user.isSuperuser || false,
+      isActive: user.isActive !== undefined ? user.isActive : true,
+      mfaEnabled: user.mfaEnabled || false
+    });
+    setShowEditForm(true);
+  };
+
+  // Handle edit form input change
+  const handleEditInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setEditUserData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  // Handle edit form submit
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setFormSubmitting(true);
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      const userData = {
+        username: editUserData.username.trim(),
+        email: editUserData.email.trim(),
+        first_name: editUserData.firstName.trim(),
+        last_name: editUserData.lastName.trim(),
+        phone: editUserData.phone.trim() || null,
+        role: editUserData.role,
+        department: editUserData.department || null,
+        is_active: editUserData.isActive,
+        is_staff: editUserData.isStaff,
+        is_superuser: editUserData.isSuperuser,
+        mfa_enabled: editUserData.mfaEnabled
+      };
+
+      await users.update(editingUser.id, userData);
+
+      setSuccessMessage(`User "${editUserData.username}" updated successfully!`);
+      setShowEditForm(false);
+      setEditingUser(null);
+      fetchUsers();
+      setTimeout(() => setSuccessMessage(''), 5000);
+
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || err.response?.data?.detail || err.message || 'An error occurred while updating user';
+      setError(errorMsg);
+      console.error('Error updating user:', err);
+    } finally {
+      setFormSubmitting(false);
+    }
   };
 
   // Handle create user
@@ -578,8 +661,15 @@ const UserManagement = () => {
                             <Eye className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={() => handleResetPassword(user.id, user.username)}
+                            onClick={() => handleEditUser(user)}
                             className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"
+                            title="Edit User"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleResetPassword(user.id, user.username)}
+                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg"
                             title="Reset Password"
                           >
                             <Key className="h-4 w-4" />
@@ -626,7 +716,7 @@ const UserManagement = () => {
         )}
       </div>
 
-      {/* User Detail Modal - Keep as is */}
+      {/* User Detail Modal */}
       {selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -748,6 +838,16 @@ const UserManagement = () => {
 
               <div className="flex justify-end gap-3 mt-8">
                 <button
+                  onClick={() => {
+                    setSelectedUser(null);
+                    handleEditUser(selectedUser);
+                  }}
+                  className="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium flex items-center"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit User
+                </button>
+                <button
                   onClick={() => setSelectedUser(null)}
                   className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                 >
@@ -759,7 +859,220 @@ const UserManagement = () => {
         </div>
       )}
 
-      {/* Add User Form Modal - Keep as is */}
+      {/* Edit User Form Modal */}
+      {showEditForm && editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-gray-800">Edit User</h3>
+                <button 
+                  onClick={() => {
+                    setShowEditForm(false);
+                    setEditingUser(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                  disabled={formSubmitting}
+                >
+                  ×
+                </button>
+              </div>
+
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleEditSubmit}>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Username *</label>
+                      <input
+                        type="text"
+                        name="username"
+                        value={editUserData.username}
+                        onChange={handleEditInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                        disabled={formSubmitting}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={editUserData.email}
+                        onChange={handleEditInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                        disabled={formSubmitting}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
+                      <input
+                        type="text"
+                        name="firstName"
+                        value={editUserData.firstName}
+                        onChange={handleEditInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                        disabled={formSubmitting}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
+                      <input
+                        type="text"
+                        name="lastName"
+                        value={editUserData.lastName}
+                        onChange={handleEditInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                        disabled={formSubmitting}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={editUserData.phone}
+                      onChange={handleEditInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={formSubmitting}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
+                      <select 
+                        name="role"
+                        value={editUserData.role}
+                        onChange={handleEditInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                        disabled={formSubmitting}
+                      >
+                        <option value="">Select Role</option>
+                        {roles.map(role => (
+                          <option key={role.value} value={role.value}>
+                            {role.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                      <select 
+                        name="department"
+                        value={editUserData.department}
+                        onChange={handleEditInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        disabled={formSubmitting}
+                      >
+                        <option value="">Select Department</option>
+                        {departments.map(dept => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-gray-700">Permissions</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <label className="flex items-center">
+                        <input 
+                          type="checkbox" 
+                          name="isStaff"
+                          checked={editUserData.isStaff}
+                          onChange={handleEditInputChange}
+                          className="mr-2"
+                          disabled={formSubmitting}
+                        />
+                        <span className="text-sm text-gray-700">Staff Member</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input 
+                          type="checkbox" 
+                          name="isSuperuser"
+                          checked={editUserData.isSuperuser}
+                          onChange={handleEditInputChange}
+                          className="mr-2"
+                          disabled={formSubmitting}
+                        />
+                        <span className="text-sm text-gray-700">Superuser</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input 
+                          type="checkbox" 
+                          name="isActive"
+                          checked={editUserData.isActive}
+                          onChange={handleEditInputChange}
+                          className="mr-2"
+                          disabled={formSubmitting}
+                        />
+                        <span className="text-sm text-gray-700">Active Account</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input 
+                          type="checkbox" 
+                          name="mfaEnabled"
+                          checked={editUserData.mfaEnabled}
+                          onChange={handleEditInputChange}
+                          className="mr-2"
+                          disabled={formSubmitting}
+                        />
+                        <span className="text-sm text-gray-700">Require MFA Setup</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-6">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowEditForm(false);
+                        setEditingUser(null);
+                      }}
+                      className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                      disabled={formSubmitting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
+                      disabled={formSubmitting}
+                    >
+                      {formSubmitting ? (
+                        <>
+                          <Loader className="h-4 w-4 mr-2 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        'Update User'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add User Form Modal */}
       {showUserForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -791,10 +1104,10 @@ const UserManagement = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Username *</label>
                       <input
                         type="text"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Enter username"
+                        name="username"
                         value={newUser.username}
                         onChange={(e) => setNewUser({...newUser, username: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         required
                         disabled={formSubmitting}
                       />
@@ -803,10 +1116,10 @@ const UserManagement = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
                       <input
                         type="email"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="user@school.ac.ke"
+                        name="email"
                         value={newUser.email}
                         onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         required
                         disabled={formSubmitting}
                       />
@@ -818,10 +1131,10 @@ const UserManagement = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
                       <input
                         type="text"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="First name"
+                        name="firstName"
                         value={newUser.firstName}
                         onChange={(e) => setNewUser({...newUser, firstName: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         required
                         disabled={formSubmitting}
                       />
@@ -830,10 +1143,10 @@ const UserManagement = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
                       <input
                         type="text"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Last name"
+                        name="lastName"
                         value={newUser.lastName}
                         onChange={(e) => setNewUser({...newUser, lastName: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         required
                         disabled={formSubmitting}
                       />
@@ -844,10 +1157,10 @@ const UserManagement = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
                     <input
                       type="tel"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="+254700000000"
+                      name="phone"
                       value={newUser.phone}
                       onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       disabled={formSubmitting}
                     />
                   </div>
@@ -856,9 +1169,10 @@ const UserManagement = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
                       <select 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        name="role"
                         value={newUser.role}
                         onChange={(e) => setNewUser({...newUser, role: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         required
                         disabled={formSubmitting}
                       >
@@ -873,9 +1187,10 @@ const UserManagement = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
                       <select 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        name="department"
                         value={newUser.department}
                         onChange={(e) => setNewUser({...newUser, department: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         disabled={formSubmitting}
                       >
                         <option value="">Select Department</option>
@@ -901,10 +1216,11 @@ const UserManagement = () => {
                     </div>
                     <input
                       type="text"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
-                      placeholder="Leave blank for auto-generated password"
+                      name="password"
                       value={newUser.password}
                       onChange={(e) => handlePasswordChange(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                      placeholder="Leave blank for auto-generated password"
                       disabled={formSubmitting}
                     />
                     {newUser.password && (
@@ -925,9 +1241,10 @@ const UserManagement = () => {
                       <label className="flex items-center">
                         <input 
                           type="checkbox" 
-                          className="mr-2"
+                          name="isStaff"
                           checked={newUser.isStaff}
                           onChange={(e) => setNewUser({...newUser, isStaff: e.target.checked})}
+                          className="mr-2"
                           disabled={formSubmitting}
                         />
                         <span className="text-sm text-gray-700">Staff Member</span>
@@ -935,9 +1252,10 @@ const UserManagement = () => {
                       <label className="flex items-center">
                         <input 
                           type="checkbox" 
-                          className="mr-2"
+                          name="isSuperuser"
                           checked={newUser.isSuperuser}
                           onChange={(e) => setNewUser({...newUser, isSuperuser: e.target.checked})}
+                          className="mr-2"
                           disabled={formSubmitting}
                         />
                         <span className="text-sm text-gray-700">Superuser</span>
@@ -945,9 +1263,10 @@ const UserManagement = () => {
                       <label className="flex items-center">
                         <input 
                           type="checkbox" 
-                          className="mr-2"
+                          name="isActive"
                           checked={newUser.isActive}
                           onChange={(e) => setNewUser({...newUser, isActive: e.target.checked})}
+                          className="mr-2"
                           disabled={formSubmitting}
                         />
                         <span className="text-sm text-gray-700">Active Account</span>
@@ -955,9 +1274,10 @@ const UserManagement = () => {
                       <label className="flex items-center">
                         <input 
                           type="checkbox" 
-                          className="mr-2"
+                          name="mfaEnabled"
                           checked={newUser.mfaEnabled}
                           onChange={(e) => setNewUser({...newUser, mfaEnabled: e.target.checked})}
+                          className="mr-2"
                           disabled={formSubmitting}
                         />
                         <span className="text-sm text-gray-700">Require MFA Setup</span>
@@ -999,7 +1319,7 @@ const UserManagement = () => {
         </div>
       )}
 
-      {/* Password Reset Modal - Keep as is */}
+      {/* Password Reset Modal */}
       {showResetPassword && resetPasswordUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-lg max-w-md w-full">
