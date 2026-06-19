@@ -3,9 +3,10 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
 
 const AuthContext = createContext();
+
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -23,29 +24,32 @@ export const AuthProvider = ({ children }) => {
   
 
   useEffect(() => {
-    
-    
-    const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
-    
-    
-    
-    if (token && storedUser) {
-      try {
-        const userData = JSON.parse(storedUser);
-        
-        setUser(userData);
-      } catch (e) {
-        console.error('AuthProvider - Error parsing stored user:', e);
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+    const validateSession = async () => {
+      const token = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+
+      if (token && storedUser) {
+        try {
+          // Use your backend to verify the token is still valid
+          const response = await fetch(`${API_BASE_URL}/api/auth/validate-token/`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+
+          if (response.ok) {
+            setUser(JSON.parse(storedUser));
+          } else {
+            // Token is invalid/expired
+            logout();
+          }
+        } catch (e) {
+          logout();
+        }
       }
-    } else {
-      console.log('AuthProvider - No stored credentials found');
-    }
-    
-    setLoading(false);
-    
+      setLoading(false);
+    };
+
+    validateSession();
   }, []);
 
   const login = async (email, password) => {
@@ -128,6 +132,20 @@ export const AuthProvider = ({ children }) => {
     }
     return headers;
   };
+  const authenticatedFetch = async (url, options = {}) => {
+    const headers = { ...getAuthHeaders(), ...options.headers };
+    
+    const response = await fetch(url, { ...options, headers });
+    
+    if (response.status === 401) {
+      logout(); // Clear localStorage and reset state
+      window.location.href = '/Login'; // Force redirect
+      throw new Error('Unauthorized - Please log in again');
+    }
+    
+    return response;
+  };
+
 
   const value = {
     user,
@@ -136,6 +154,7 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     getAuthHeaders,
+    authenticatedFetch,
     isAuthenticated: !!user,
   };
 

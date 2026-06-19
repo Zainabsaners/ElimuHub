@@ -660,8 +660,8 @@ class ExpenseSerializer(serializers.ModelSerializer):
 class StaffSerializer(serializers.ModelSerializer):
     class Meta:
         model = Staff
-        fields = ['id', 'staff_id', 'full_name', 'designation', 'department', 'basic_salary', 'account_number', 'bank_name', 'status']
-
+        fields = ['id', 'staff_id', 'full_name', 'designation', 'department', 'basic_salary', 'account_number', 'bank_name', 'status', 'created_at', 'updated_at']
+    read_only_fields = ['id', 'created_at', 'updated_at']
 class PayrollComponentSerializer(serializers.ModelSerializer):
     class Meta:
         model = PayrollComponent

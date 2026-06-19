@@ -4,9 +4,11 @@ from django.contrib.auth.models import AbstractUser
 from django.core.validators import MinValueValidator, MaxValueValidator, RegexValidator
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from django.contrib.auth import get_user_model
+from django.conf import settings
 import uuid
 from decimal import Decimal
+
+User = settings.AUTH_USER_MODEL
 
 # ==================== UTILITY FUNCTIONS ====================
 def generate_inv_id():
@@ -2173,7 +2175,7 @@ class BackupHistory(models.Model):
     verification_status = models.BooleanField(blank=True, null=True)
     verification_time = models.DateTimeField(blank=True, null=True)
     error_message = models.TextField(blank=True, null=True)
-    initiated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    initiated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     restore_point = models.BooleanField(default=False)
     retention_days = models.IntegerField(default=30)
     expires_on = models.DateField(blank=True, null=True)
@@ -2188,6 +2190,36 @@ class BackupHistory(models.Model):
     
     def __str__(self):
         return f"{self.backup_name} - {self.backup_start.date()} - {self.status}"
+    
+class BackupMetadata(models.Model):
+    """Store metadata about backup operations"""
+    BACKUP_TYPES = [
+        ('FULL', 'Full Backup'),
+        ('SCHEMA', 'Schema Only'),
+        ('DATA', 'Data Only'),
+    ]
+    
+    backup_name = models.CharField(max_length=255, unique=True)
+    backup_type = models.CharField(max_length=10, choices=BACKUP_TYPES)
+    file_size = models.BigIntegerField(default=0)
+    duration_seconds = models.FloatField(default=0)
+    status = models.CharField(max_length=20, default='COMPLETED')
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    backup_path = models.CharField(max_length=500)
+    verification_status = models.BooleanField(default=False)
+    notes = models.TextField(blank=True, null=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['backup_name']),
+            models.Index(fields=['created_at']),
+            models.Index(fields=['backup_type']),
+        ]
+    
+    def __str__(self):
+        return f"{self.backup_name} - {self.backup_type} - {self.created_at}"
 
 class SystemSetting(models.Model):
     SETTING_TYPE_CHOICES = [
@@ -2502,4 +2534,6 @@ class Expense(models.Model):
     status = models.CharField(max_length=20, default='pending') # pending, approved, cancelled
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
 
-User = get_user_model()
+
+
+

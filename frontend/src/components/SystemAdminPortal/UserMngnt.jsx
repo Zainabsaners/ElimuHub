@@ -1,16 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Search, Filter, UserPlus, Edit, Trash2, 
   Eye, Lock, Unlock, Shield, Mail, Phone,
   Calendar, CheckCircle, XCircle, Copy,
   Download, Key, RefreshCw, Loader
 } from 'lucide-react';
-
-// API configuration 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://*.onrender.com";
+import { users } from '../../api';
 
 const UserManagement = () => {
-  const [users, setUsers] = useState([]);
+  const [usersList, setUsersList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -47,12 +45,14 @@ const UserManagement = () => {
 
   // Available roles and departments
   const roles = [
-    { value: 'hr', label: 'HR Officer' },
-    { value: 'sys', label: 'System Administrator' },
+    { value: 'system_admin', label: 'System Administrator' },
+    { value: 'registrar', label: 'Registrar' },
     { value: 'bursar', label: 'Bursar' },
     { value: 'accountant', label: 'Accountant' },
-    { value: 'registrar', label: 'Registrar' },
-    { value: 'admin', label: 'Administrator' }
+    { value: 'teacher', label: 'Teacher' },
+    { value: 'hr_manager', label: 'HR Manager' },
+    { value: 'student', label: 'Student' },
+    { value: 'parent', label: 'Parent' }
   ];
 
   const departments = [
@@ -60,43 +60,25 @@ const UserManagement = () => {
     'Administration', 'Library', 'Sports', 'Student Affairs'
   ];
 
-  // Fetch users from API - FIXED VERSION
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      setError('');
+      const response = await users.getAll();
       
-      
-      const response = await fetch(`${API_BASE_URL}/users`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      
-      // Handle different response formats
       let usersArray = [];
+      const data = response.data;
       
-      if (Array.isArray(result)) {
-        // Direct array: [user1, user2, ...]
-        usersArray = result;
-      } else if (result.users && Array.isArray(result.users)) {
-        // Object with users property: {users: [user1, user2, ...]}
-        usersArray = result.users;
-      } else if (result.data && Array.isArray(result.data)) {
-        // Object with data property: {data: [user1, user2, ...]}
-        usersArray = result.data;
+      if (Array.isArray(data)) {
+        usersArray = data;
+      } else if (data.results && Array.isArray(data.results)) {
+        usersArray = data.results;
+      } else if (data.data && Array.isArray(data.data)) {
+        usersArray = data.data;
+      } else if (data.users && Array.isArray(data.users)) {
+        usersArray = data.users;
       } else {
-        console.error('Unexpected response format:', result);
+        console.error('Unexpected response format:', data);
         throw new Error('Server returned invalid data format');
-      }
-      
-      // Check if we got any users
-      if (usersArray.length === 0) {
-        setUsers([]);
-        setLoading(false);
-        return;
       }
       
       // Transform data to match frontend format
@@ -104,23 +86,22 @@ const UserManagement = () => {
         id: user.id,
         username: user.username,
         email: user.email,
-        firstName: user.first_name || user.firstName,
-        lastName: user.last_name || user.lastName,
-        role: user.role,
-        department: user.department,
-        phone: user.phone,
+        firstName: user.first_name || user.firstName || '',
+        lastName: user.last_name || user.lastName || '',
+        role: user.role || '',
+        department: user.department || '',
+        phone: user.phone || '',
         lastLogin: user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never',
-        isActive: user.is_active || user.isActive,
-        isStaff: user.is_staff || user.isStaff,
-        isSuperuser: user.is_superuser || user.isSuperuser,
+        isActive: user.is_active !== undefined ? user.is_active : user.isActive,
+        isStaff: user.is_staff !== undefined ? user.is_staff : user.isStaff,
+        isSuperuser: user.is_superuser !== undefined ? user.is_superuser : user.isSuperuser,
         dateJoined: user.date_joined ? new Date(user.date_joined).toLocaleDateString() : 'Unknown',
-        mfaEnabled: user.mfa_enabled || user.mfaEnabled,
-        lockedUntil: user.locked_until,
-        failedAttempts: user.failed_attempts || 0
+        mfaEnabled: user.mfa_enabled || user.mfaEnabled || false,
+        lockedUntil: user.locked_until || user.lockedUntil || null,
+        failedAttempts: user.failed_attempts || user.failedAttempts || 0
       }));
       
-      
-      setUsers(transformedUsers);
+      setUsersList(transformedUsers);
       
     } catch (err) {
       console.error('Error fetching users:', err);
@@ -128,11 +109,11 @@ const UserManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   // Generate secure password
   const generateSecurePassword = () => {
@@ -140,30 +121,23 @@ const UserManagement = () => {
     const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
     let password = "";
     
-    // Ensure at least one of each required character type
-    password += charset.charAt(Math.floor(Math.random() * 26)); // lowercase
-    password += charset.charAt(26 + Math.floor(Math.random() * 26)); // uppercase
-    password += charset.charAt(52 + Math.floor(Math.random() * 10)); // number
-    password += charset.charAt(62 + Math.floor(Math.random() * 10)); // special
+    password += charset.charAt(Math.floor(Math.random() * 26));
+    password += charset.charAt(26 + Math.floor(Math.random() * 26));
+    password += charset.charAt(52 + Math.floor(Math.random() * 10));
+    password += charset.charAt(62 + Math.floor(Math.random() * 10));
     
-    // Fill the rest
     for (let i = 4; i < length; i++) {
       password += charset.charAt(Math.floor(Math.random() * charset.length));
     }
     
-    // Shuffle the password
     password = password.split('').sort(() => Math.random() - 0.5).join('');
-    
     return password;
   };
 
   // Handle reset password
   const handleResetPassword = async (id, username) => {
-    // Set the user for reset
-    const user = users.find(u => u.id === id);
+    const user = usersList.find(u => u.id === id);
     setResetPasswordUser({ id, username, email: user?.email || '' });
-    
-    // Generate new password
     const newPassword = generateSecurePassword();
     setGeneratedPassword(newPassword);
     setShowResetPassword(true);
@@ -176,29 +150,12 @@ const UserManagement = () => {
     try {
       setFormSubmitting(true);
       
-      // Call backend API to update password
-      const response = await fetch(`${API_BASE_URL}/users/${resetPasswordUser.id}/reset-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          newPassword: generatedPassword,
-          userId: resetPasswordUser.id 
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to reset password');
-      }
+      await users.update(resetPasswordUser.id, { password: generatedPassword });
 
       setSuccessMessage(`Password reset for "${resetPasswordUser.username}" successful!`);
       setShowResetPassword(false);
       setResetPasswordUser(null);
       setGeneratedPassword('');
-
-      // Clear success message after 5 seconds
       setTimeout(() => setSuccessMessage(''), 5000);
 
     } catch (err) {
@@ -227,17 +184,11 @@ const UserManagement = () => {
     const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
 
     if (password.length < minLength) {
-      return { 
-        isValid: false, 
-        message: `Password must be at least ${minLength} characters` 
-      };
+      return { isValid: false, message: `Password must be at least ${minLength} characters` };
     }
 
     if (!hasUpperCase || !hasLowerCase || !hasNumbers || !hasSpecialChar) {
-      return { 
-        isValid: false, 
-        message: 'Password must include uppercase, lowercase, numbers, and special characters' 
-      };
+      return { isValid: false, message: 'Password must include uppercase, lowercase, numbers, and special characters' };
     }
 
     return { isValid: true, message: 'Strong password' };
@@ -250,7 +201,6 @@ const UserManagement = () => {
     setError('');
     setSuccessMessage('');
 
-    // Validate password
     if (newUser.password) {
       const strength = checkPasswordStrength(newUser.password);
       if (!strength.isValid) {
@@ -261,46 +211,32 @@ const UserManagement = () => {
     }
 
     try {
-      // Prepare data for backend
       const userData = {
         username: newUser.username.trim(),
         email: newUser.email.trim(),
-        firstName: newUser.firstName.trim(),
-        lastName: newUser.lastName.trim(),
+        first_name: newUser.firstName.trim(),
+        last_name: newUser.lastName.trim(),
         phone: newUser.phone.trim() || null,
         role: newUser.role,
         department: newUser.department || null,
-        password: newUser.password || undefined, // Let backend generate if empty
-        isStaff: newUser.isStaff,
-        isSuperuser: newUser.isSuperuser,
-        isActive: newUser.isActive,
-        mfaEnabled: newUser.mfaEnabled
+        is_active: newUser.isActive,
+        is_staff: newUser.isStaff,
+        is_superuser: newUser.isSuperuser,
+        mfa_enabled: newUser.mfaEnabled,
+        password: newUser.password || undefined
       };
 
-      const response = await fetch(`${API_BASE_URL}/users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
-      });
+      await users.create(userData);
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || result.details || 'Failed to create user');
-      }
-
-      setSuccessMessage(`User created successfully!`);
+      setSuccessMessage('User created successfully!');
       setShowUserForm(false);
       resetForm();
-      fetchUsers(); // Refresh user list
-
-      // Clear success message after 5 seconds
+      fetchUsers();
       setTimeout(() => setSuccessMessage(''), 5000);
 
     } catch (err) {
-      setError(err.message || 'An error occurred while creating user');
+      const errorMsg = err.response?.data?.error || err.response?.data?.detail || err.message || 'An error occurred while creating user';
+      setError(errorMsg);
       console.error('Error creating user:', err);
     } finally {
       setFormSubmitting(false);
@@ -309,21 +245,9 @@ const UserManagement = () => {
 
   // Generate random password for form
   const generatePassword = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/generate-password`);
-      if (!response.ok) throw new Error('Failed to generate password');
-      const data = await response.json();
-      setNewUser({ ...newUser, password: data.password });
-      
-      // Check strength of generated password
-      setPasswordStrength(checkPasswordStrength(data.password));
-    } catch (err) {
-      console.error('Error generating password:', err);
-      // Fallback: generate client-side
-      const newPassword = generateSecurePassword();
-      setNewUser({ ...newUser, password: newPassword });
-      setPasswordStrength(checkPasswordStrength(newPassword));
-    }
+    const newPassword = generateSecurePassword();
+    setNewUser({ ...newUser, password: newPassword });
+    setPasswordStrength(checkPasswordStrength(newPassword));
   };
 
   // Handle password input change
@@ -354,14 +278,12 @@ const UserManagement = () => {
   const handleDeleteUser = async (id, username) => {
     if (window.confirm(`Are you sure you want to delete user "${username}"? This action cannot be undone.`)) {
       try {
-        // TODO: Implement delete API endpoint when ready
-        // const response = await fetch(`${API_BASE_URL}/users/${id}`, { method: 'DELETE' });
-        // if (response.ok) {
-          setUsers(users.filter(user => user.id !== id));
-          setSuccessMessage(`User "${username}" deleted successfully`);
-        // }
+        await users.delete(id);
+        setUsersList(usersList.filter(user => user.id !== id));
+        setSuccessMessage(`User "${username}" deleted successfully`);
+        setTimeout(() => setSuccessMessage(''), 5000);
       } catch (err) {
-        setError('Failed to delete user');
+        setError('Failed to delete user: ' + err.message);
       }
     }
   };
@@ -372,42 +294,33 @@ const UserManagement = () => {
     
     if (window.confirm(`Are you sure you want to ${action} user "${username}"?`)) {
       try {
-        // TODO: Implement status toggle API endpoint
-        // const response = await fetch(`${API_BASE_URL}/users/${id}/status`, {
-        //   method: 'PATCH',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify({ isActive: newStatus })
-        // });
-        
-        // if (response.ok) {
-          setUsers(users.map(user => 
-            user.id === id ? { ...user, isActive: newStatus } : user
-          ));
-          setSuccessMessage(`User "${username}" ${action}d successfully`);
-        // }
+        await users.update(id, { is_active: newStatus });
+        setUsersList(usersList.map(user => 
+          user.id === id ? { ...user, isActive: newStatus } : user
+        ));
+        setSuccessMessage(`User "${username}" ${action}d successfully`);
+        setTimeout(() => setSuccessMessage(''), 5000);
       } catch (err) {
-        setError(`Failed to ${action} user`);
+        setError(`Failed to ${action} user: ${err.message}`);
       }
     }
   };
 
   const handleUnlockAccount = async (id, username) => {
     try {
-      // TODO: Implement unlock account API endpoint
-      // const response = await fetch(`${API_BASE_URL}/users/${id}/unlock`, { method: 'POST' });
-      // if (response.ok) {
-        setUsers(users.map(user => 
-          user.id === id ? { ...user, lockedUntil: null, failedAttempts: 0 } : user
-        ));
-        setSuccessMessage(`Account unlocked for user "${username}"`);
-      // }
+      await users.update(id, { locked_until: null, failed_attempts: 0 });
+      setUsersList(usersList.map(user => 
+        user.id === id ? { ...user, lockedUntil: null, failedAttempts: 0 } : user
+      ));
+      setSuccessMessage(`Account unlocked for user "${username}"`);
+      setTimeout(() => setSuccessMessage(''), 5000);
     } catch (err) {
-      setError('Failed to unlock account');
+      setError('Failed to unlock account: ' + err.message);
     }
   };
 
   // Filter users based on search and filters
-  const filteredUsers = users.filter(user => {
+  const filteredUsers = usersList.filter(user => {
     const matchesSearch = 
       user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -532,10 +445,10 @@ const UserManagement = () => {
           </h3>
           <div className="flex items-center text-sm text-gray-600">
             <span className="bg-green-100 text-green-800 px-2 py-1 rounded mr-2">
-              {users.filter(u => u.isActive).length} Active
+              {usersList.filter(u => u.isActive).length} Active
             </span>
             <span className="bg-red-100 text-red-800 px-2 py-1 rounded">
-              {users.filter(u => u.lockedUntil).length} Locked
+              {usersList.filter(u => u.lockedUntil).length} Locked
             </span>
           </div>
         </div>
@@ -545,9 +458,6 @@ const UserManagement = () => {
           <div className="flex flex-col items-center justify-center h-64">
             <Loader className="h-12 w-12 animate-spin text-blue-600 mb-4" />
             <p className="text-gray-600">Loading users...</p>
-            <p className="text-sm text-gray-400 mt-2">
-              Fetching from {API_BASE_URL}/users
-            </p>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center h-64 p-6">
@@ -591,15 +501,6 @@ const UserManagement = () => {
                             ? 'Try adjusting your filters' 
                             : 'Add your first user to get started'}
                         </p>
-                        {!searchTerm && filterRole === 'all' && filterStatus === 'all' && (
-                          <button
-                            onClick={() => setShowUserForm(true)}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                          >
-                            <UserPlus className="inline h-4 w-4 mr-2" />
-                            Add First User
-                          </button>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -615,11 +516,14 @@ const UserManagement = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-3 py-1 text-xs font-medium rounded-full ${
-                          user.role === 'admin' ? 'bg-purple-100 text-purple-800' :
-                          user.role === 'sys' ? 'bg-blue-100 text-blue-800' :
-                          user.role === 'hr' ? 'bg-green-100 text-green-800' :
+                          user.role === 'system_admin' ? 'bg-red-100 text-red-800' :
+                          user.role === 'registrar' ? 'bg-indigo-100 text-indigo-800' :
                           user.role === 'bursar' ? 'bg-yellow-100 text-yellow-800' :
-                          user.role === 'accountant' ? 'bg-indigo-100 text-indigo-800' :
+                          user.role === 'accountant' ? 'bg-blue-100 text-blue-800' :
+                          user.role === 'hr_manager' ? 'bg-green-100 text-green-800' :
+                          user.role === 'teacher' ? 'bg-cyan-100 text-cyan-800' :
+                          user.role === 'student' ? 'bg-amber-100 text-amber-800' :
+                          user.role === 'parent' ? 'bg-teal-100 text-teal-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
                           {formatRoleDisplay(user.role)}
@@ -722,7 +626,7 @@ const UserManagement = () => {
         )}
       </div>
 
-      {/* User Detail Modal */}
+      {/* User Detail Modal - Keep as is */}
       {selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -761,9 +665,10 @@ const UserManagement = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                     <span className={`px-3 py-1 text-sm font-medium rounded-full ${
-                      selectedUser.role === 'admin' ? 'bg-purple-100 text-purple-800' :
-                      selectedUser.role === 'sys' ? 'bg-blue-100 text-blue-800' :
-                      selectedUser.role === 'hr' ? 'bg-green-100 text-green-800' :
+                      selectedUser.role === 'system_admin' ? 'bg-red-100 text-red-800' :
+                      selectedUser.role === 'registrar' ? 'bg-indigo-100 text-indigo-800' :
+                      selectedUser.role === 'bursar' ? 'bg-yellow-100 text-yellow-800' :
+                      selectedUser.role === 'accountant' ? 'bg-blue-100 text-blue-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
                       {formatRoleDisplay(selectedUser.role)}
@@ -854,7 +759,7 @@ const UserManagement = () => {
         </div>
       )}
 
-      {/* Add User Form Modal */}
+      {/* Add User Form Modal - Keep as is */}
       {showUserForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -1094,7 +999,7 @@ const UserManagement = () => {
         </div>
       )}
 
-      {/* Password Reset Modal */}
+      {/* Password Reset Modal - Keep as is */}
       {showResetPassword && resetPasswordUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-lg max-w-md w-full">

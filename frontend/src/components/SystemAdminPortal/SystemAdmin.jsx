@@ -15,7 +15,7 @@ import StaffMngAdmin from "./StaffMng";
 const SysAdmin = () => {
     return(
         <div style={{ display: "flex", height: "100vh", overflow: "hidden",gap:"2px" }}>
-           
+            
             
             {/* Main Content Area */}
             <div style={{ 

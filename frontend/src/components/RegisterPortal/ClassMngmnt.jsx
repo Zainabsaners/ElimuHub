@@ -4,9 +4,7 @@ import {
   BarChart3, AlertCircle, X, Loader2, Info,
   Edit2, Trash2, Eye
 } from 'lucide-react';
-import { useAuth } from '../Authentication/AuthContext'; // Adjust the import path based on your structure
-
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+import { classes, teachers } from '../../api';
 
 // Custom notification component
 const Notification = ({ type, message, onClose, duration = 5000 }) => {
@@ -23,31 +21,21 @@ const Notification = ({ type, message, onClose, duration = 5000 }) => {
 
   const getStyles = () => {
     switch (type) {
-      case 'success':
-        return 'bg-green-50 border-green-200 text-green-800';
-      case 'error':
-        return 'bg-red-50 border-red-200 text-red-800';
-      case 'warning':
-        return 'bg-yellow-50 border-yellow-200 text-yellow-800';
-      case 'info':
-        return 'bg-blue-50 border-blue-200 text-blue-800';
-      default:
-        return 'bg-gray-50 border-gray-200 text-gray-800';
+      case 'success': return 'bg-green-50 border-green-200 text-green-800';
+      case 'error': return 'bg-red-50 border-red-200 text-red-800';
+      case 'warning': return 'bg-yellow-50 border-yellow-200 text-yellow-800';
+      case 'info': return 'bg-blue-50 border-blue-200 text-blue-800';
+      default: return 'bg-gray-50 border-gray-200 text-gray-800';
     }
   };
 
   const getIcon = () => {
     switch (type) {
-      case 'success':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case 'error':
-        return <AlertCircle className="h-5 w-5 text-red-500" />;
-      case 'warning':
-        return <AlertCircle className="h-5 w-5 text-yellow-500" />;
-      case 'info':
-        return <Info className="h-5 w-5 text-blue-500" />;
-      default:
-        return <Info className="h-5 w-5 text-gray-500" />;
+      case 'success': return <CheckCircle className="h-5 w-5 text-green-500" />;
+      case 'error': return <AlertCircle className="h-5 w-5 text-red-500" />;
+      case 'warning': return <AlertCircle className="h-5 w-5 text-yellow-500" />;
+      case 'info': return <Info className="h-5 w-5 text-blue-500" />;
+      default: return <Info className="h-5 w-5 text-gray-500" />;
     }
   };
 
@@ -56,9 +44,7 @@ const Notification = ({ type, message, onClose, duration = 5000 }) => {
   return (
     <div 
       className={`fixed top-4 right-4 z-50 max-w-md w-full md:w-auto animate-slide-in ${getStyles()} rounded-lg border p-4 shadow-lg`}
-      style={{
-        animation: 'slideIn 0.3s ease-out',
-      }}
+      style={{ animation: 'slideIn 0.3s ease-out' }}
     >
       <div className="flex items-start">
         {getIcon()}
@@ -87,12 +73,9 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirm
 
   const getButtonStyles = () => {
     switch (type) {
-      case 'danger':
-        return 'bg-red-600 hover:bg-red-700 focus:ring-red-500';
-      case 'success':
-        return 'bg-green-600 hover:bg-green-700 focus:ring-green-500';
-      default:
-        return 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500';
+      case 'danger': return 'bg-red-600 hover:bg-red-700 focus:ring-red-500';
+      case 'success': return 'bg-green-600 hover:bg-green-700 focus:ring-green-500';
+      default: return 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500';
     }
   };
 
@@ -106,10 +89,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirm
           </div>
           <p className="text-gray-600 mb-6">{message}</p>
           <div className="flex justify-end space-x-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-            >
+            <button onClick={onClose} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
               {cancelText}
             </button>
             <button
@@ -129,17 +109,12 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirm
 };
 
 function ClassManagement() {
-  const { user, getAuthHeaders, isAuthenticated } = useAuth();
-  const [classes, setClasses] = useState([]);
-  const [loading, setLoading] = useState({
-    classes: true,
-    teachers: true,
-    streams: true
-  });
+  const [classesList, setClassesList] = useState([]);
+  const [loading, setLoading] = useState({ classes: true, teachers: true, streams: true });
   const [notifications, setNotifications] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [teachers, setTeachers] = useState([]);
-  const [streams, setStreams] = useState([]);
+  const [teachersList, setTeachersList] = useState([]);
+  const [streamsList, setStreamsList] = useState([]);
   const [confirmationModal, setConfirmationModal] = useState({
     isOpen: false,
     data: null,
@@ -168,69 +143,37 @@ function ClassManagement() {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  // ✅ Wrapped inside useCallback to fix dependency tree safely
+  // Fetch data using api.js
   const fetchData = useCallback(async () => {
-    if (!isAuthenticated) return;
-    
     try {
-      setLoading({ classes: true, teachers: true });
+      setLoading({ classes: true, teachers: true, streams: true });
       
-      // Fetch classes with auth headers
-      const response = await fetch(`${API_BASE_URL}/api/classes/`, {
-        headers: getAuthHeaders()
-      });
-      
-      if (!response.ok) {
-        if (response.status === 401) {
-          addNotification('error', 'Session expired. Please login again.');
-          return;
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      if (data.success) {
-        setClasses(data.data);
-      } else {
-        addNotification('error', data.error || 'Failed to load classes');
-      }
-      
-      const streamResponse = await fetch(`${API_BASE_URL}/api/streams/`, {
-        headers: getAuthHeaders()
-      });
-      if (streamResponse.ok) {
-        const streamsData = await streamResponse.json();
-        setStreams(streamsData.data);
-      }
+      // Fetch classes
+      const classesRes = await classes.getAll();
+      const classData = classesRes.data.data || classesRes.data || [];
+      setClassesList(classData);
+
+      // Fetch streams
+      const streamsRes = await classes.getStreams();
+      const streamData = streamsRes.data.data || streamsRes.data || [];
+      setStreamsList(streamData);
 
       // Fetch teachers
-      const teachersResponse = await fetch(`${API_BASE_URL}/api/teachers/`, {
-        headers: getAuthHeaders()
-      });
-      
-      if (teachersResponse.ok) {
-        const teachersData = await teachersResponse.json();
-        if (teachersData.success) {
-          setTeachers(teachersData.data);
-        }
-      }
+      const teachersRes = await teachers.getAll();
+      const teacherData = teachersRes.data.data || teachersRes.data || [];
+      setTeachersList(teacherData);
 
     } catch (error) {
       console.error('Fetch error:', error);
       addNotification('error', 'Error fetching data. Please check your connection.');
     } finally {
-      setLoading({ classes: false, teachers: false });
+      setLoading({ classes: false, teachers: false, streams: false });
     }
-  }, [isAuthenticated, getAuthHeaders, addNotification]);
+  }, [addNotification]);
 
-  // Check authentication on mount
   useEffect(() => {
-    if (!isAuthenticated) {
-      addNotification('error', 'Please login to access class management');
-      return;
-    }
     fetchData();
-  }, [isAuthenticated, fetchData, addNotification]);
+  }, [fetchData, addNotification]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -238,7 +181,6 @@ function ClassManagement() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-    // Clear error for this field when user starts typing
     if (formErrors[name]) {
       setFormErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -249,7 +191,7 @@ function ClassManagement() {
     
     if (!formData.class_code.trim()) {
       errors.class_code = 'Class code is required';
-    } else if (classes.some(c => c.class_code === formData.class_code)) {
+    } else if (classesList.some(c => c.class_code === formData.class_code)) {
       errors.class_code = 'Class code already exists';
     }
     
@@ -274,32 +216,21 @@ function ClassManagement() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!isAuthenticated) {
-      addNotification('error', 'Please login to create classes');
-      return;
-    }
-    
     if (!validateForm()) {
       addNotification('warning', 'Please fix the errors in the form');
       return;
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/classes/create/`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(formData)
-      });
+      const response = await classes.create(formData);
       
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
+      if (response.data.success) {
         addNotification('success', `Class "${formData.class_name}" created successfully!`);
         await fetchData();
         resetForm();
         setShowCreateModal(false);
       } else {
-        addNotification('error', data.error || 'Failed to create class');
+        addNotification('error', response.data.error || 'Failed to create class');
       }
     } catch (error) {
       console.error('Create error:', error);
@@ -329,28 +260,17 @@ function ClassManagement() {
   };
 
   const handleToggleActive = async (classId) => {
-    if (!isAuthenticated) {
-      addNotification('error', 'Please login to update classes');
-      return;
-    }
-
     try {
-      const cls = classes.find(c => c.id === classId);
+      const cls = classesList.find(c => c.id === classId);
       const newStatus = !cls.is_active;
       
-      const response = await fetch(`${API_BASE_URL}/api/classes/update/${classId}/`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ is_active: newStatus })
-      });
-      
-      const data = await response.json();
+      const response = await classes.update(classId, { is_active: newStatus });
 
-      if (response.ok && data.success) {
+      if (response.data.success) {
         addNotification('success', `Class ${newStatus ? 'activated' : 'deactivated'} successfully!`);
         await fetchData();
       } else {
-        addNotification('error', data.error || 'Failed to update class');
+        addNotification('error', response.data.error || 'Failed to update class');
       }
     } catch (error) {
       console.error('Toggle error:', error);
@@ -359,24 +279,14 @@ function ClassManagement() {
   };
 
   const handleDelete = async (classId) => {
-    if (!isAuthenticated) {
-      addNotification('error', 'Please login to delete classes');
-      return;
-    }
-
     try {
-      const response = await fetch(`${API_BASE_URL}/api/classes/delete/${classId}/`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-      });
-      
-      const data = await response.json();
+      const response = await classes.delete(classId);
 
-      if (response.ok && data.success) {
+      if (response.data.success) {
         addNotification('success', 'Class deleted successfully!');
         await fetchData();
       } else {
-        addNotification('error', data.error || 'Failed to delete class');
+        addNotification('error', response.data.error || 'Failed to delete class');
       }
     } catch (error) {
       console.error('Delete error:', error);
@@ -386,11 +296,11 @@ function ClassManagement() {
 
   // Calculate statistics
   const getStatistics = () => {
-    const totalClasses = classes.length;
-    const activeClasses = classes.filter(c => c.is_active).length;
-    const totalCapacity = classes.reduce((sum, c) => sum + (c.capacity || 0), 0);
+    const totalClasses = classesList.length;
+    const activeClasses = classesList.filter(c => c.is_active).length;
+    const totalCapacity = classesList.reduce((sum, c) => sum + (c.capacity || 0), 0);
     const averageCapacity = totalClasses > 0 ? Math.round(totalCapacity / totalClasses) : 0;
-    const totalStudents = classes.reduce((sum, c) => sum + (c.current_students || 0), 0);
+    const totalStudents = classesList.reduce((sum, c) => sum + (c.current_students || 0), 0);
 
     return { totalClasses, activeClasses, totalCapacity, averageCapacity, totalStudents };
   };
@@ -400,38 +310,11 @@ function ClassManagement() {
   // Add animation style
   const animationStyle = `
     @keyframes slideIn {
-      from {
-        transform: translateX(100%);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
     }
-    .animate-slide-in {
-      animation: slideIn 0.3s ease-out;
-    }
+    .animate-slide-in { animation: slideIn 0.3s ease-out; }
   `;
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <style>{animationStyle}</style>
-        <div className="text-center">
-          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Authentication Required</h2>
-          <p className="text-gray-600 mb-4">Please login to access class management</p>
-          <a 
-            href="/login" 
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 inline-block"
-          >
-            Go to Login
-          </a>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -479,11 +362,6 @@ function ClassManagement() {
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Class Management</h1>
               <p className="text-gray-600 mt-1 text-sm md:text-base">Create and manage classes for the academic year</p>
-              {user && (
-                <p className="text-sm text-gray-500 mt-2">
-                  Logged in as: <span className="font-medium">{user.first_name} {user.last_name}</span> ({user.role})
-                </p>
-              )}
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <button
@@ -569,7 +447,7 @@ function ClassManagement() {
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
               <h3 className="text-lg font-semibold text-gray-800">All Classes</h3>
               <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full self-start sm:self-auto">
-                {loading.classes ? '...' : classes.length} classes
+                {loading.classes ? '...' : classesList.length} classes
               </span>
             </div>
           </div>
@@ -580,7 +458,7 @@ function ClassManagement() {
                 <Loader2 className="h-12 w-12 text-blue-600 animate-spin mx-auto" />
                 <p className="mt-4 text-gray-600">Loading classes...</p>
               </div>
-            ) : classes.length === 0 ? (
+            ) : classesList.length === 0 ? (
               <div className="p-8 md:p-12 text-center">
                 <School className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-700">No classes found</h3>
@@ -596,7 +474,7 @@ function ClassManagement() {
               <div className="block md:hidden">
                 {/* Mobile view */}
                 <div className="divide-y divide-gray-200">
-                  {classes.map(cls => (
+                  {classesList.map(cls => (
                     <div key={cls.id} className="p-4 hover:bg-gray-50">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center">
@@ -674,29 +552,19 @@ function ClassManagement() {
             )}
             
             {/* Desktop table view */}
-            {!loading.classes && classes.length > 0 && (
+            {!loading.classes && classesList.length > 0 && (
               <table className="hidden md:table min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Class Details
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Teacher
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Capacity
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class Details</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teacher</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {classes.map(cls => (
+                  {classesList.map(cls => (
                     <tr key={cls.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
                         <div className="flex items-center">
@@ -704,9 +572,7 @@ function ClassManagement() {
                             <School className="h-5 w-5 text-blue-600" />
                           </div>
                           <div>
-                            <h4 className="font-medium text-gray-900">
-                              {cls.class_name}
-                            </h4>
+                            <h4 className="font-medium text-gray-900">{cls.class_name}</h4>
                             <div className="flex flex-wrap items-center mt-1 gap-1">
                               <span className="text-sm text-gray-600">Code: {cls.class_code}</span>
                               <span className="text-xs text-gray-400">•</span>
@@ -910,7 +776,7 @@ function ClassManagement() {
                         )}
                         <p className="text-xs text-gray-500 mt-1">Academic level (1-12)</p>
                       </div>
-                       <div>
+                      <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Stream
                         </label>
@@ -921,7 +787,7 @@ function ClassManagement() {
                           className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
                           <option value="">Select Stream</option>
-                          {streams.map((stream) => (
+                          {streamsList.map((stream) => (
                             <option key={stream.id} value={stream.id}>
                               {stream.name}
                             </option>
@@ -971,7 +837,7 @@ function ClassManagement() {
                           className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
                           <option value="">Select Teacher</option>
-                          {teachers.map(teacher => (
+                          {teachersList.map(teacher => (
                             <option key={teacher.id} value={teacher.id}>
                               {teacher.full_name || `${teacher.first_name} ${teacher.last_name}`}
                             </option>

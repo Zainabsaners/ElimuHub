@@ -15,6 +15,8 @@ router.register(r'notifications', views.NotificationViewSet, basename='notificat
 
 router.register(r'audit-logs', views.AuditLogViewSet, basename='audit-log')
 
+router.register(r'backups', views.BackupViewSet, basename='backup')
+
 
 router.register(r'academic-years', views.AcademicYearViewSet, basename='academic-year')
 router.register(r'terms', views.TermViewSet, basename='term')

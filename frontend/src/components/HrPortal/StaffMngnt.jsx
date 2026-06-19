@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
   PlusCircle,
@@ -174,11 +174,7 @@ const StaffManagement = () => {
   ];
 
   // Fetch staff data
-  useEffect(() => {
-    fetchStaff();
-  }, [filters]);
-
-  const fetchStaff = async () => {
+  const fetchStaff = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -197,7 +193,11 @@ const StaffManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
+
+  useEffect(() => {
+    fetchStaff();
+  }, [fetchStaff]);
 
   // Handle form input changes
   const handleInputChange = (e) => {
@@ -236,12 +236,11 @@ const StaffManagement = () => {
     setError('');
 
     try {
-      let response;
       if (formMode === 'create') {
-        response = await axios.post(API_ENDPOINTS.STAFF, formData);
+        await axios.post(API_ENDPOINTS.STAFF, formData);
         toast.success('Staff member created successfully!');
       } else {
-        response = await axios.put(API_ENDPOINTS.STAFF_BY_ID(selectedStaff?.id), formData);
+        await axios.put(API_ENDPOINTS.STAFF_BY_ID(selectedStaff?.id), formData);
         toast.success('Staff member updated successfully!');
       }
 
@@ -340,7 +339,7 @@ const StaffManagement = () => {
       link.remove();
       
       toast.success('Staff data exported successfully');
-    } catch (err) {
+    } catch  {
       toast.error('Failed to export staff data');
     }
   };
@@ -351,7 +350,7 @@ const downloadTemplate = async () => {
         // This will download the Excel template
         window.open(`${API_BASE_URL}/api/staff/template`, '_blank');
         toast.success('Excel template downloaded');
-    } catch (err) {
+    } catch{
         toast.error('Failed to download template');
     }
 };

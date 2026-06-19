@@ -1,32 +1,29 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
+import { students, classes } from '../../api';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 function StudentManagement() {
-  const [students, setStudents] = useState([]);
+  const [studentsList, setStudentsList] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
-  const [classes, setClasses] = useState([]);
-  const [loading, setLoading] = useState({
-    students: true,
-    classes: true
-  });
+  const [classesList, setClassesList] = useState([]);
+  const [loading, setLoading] = useState({ students: true, classes: true });
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [viewMode, setViewMode] = useState('list');
+  /* eslint-disable-next-line no-unused-vars */
   const [showStudentModal, setShowStudentModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState({});
   const [exportLoading, setExportLoading] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
-  const [transferData, setTransferData] = useState({
-    targetClassId: '',
-  });
+  const [transferData, setTransferData] = useState({ targetClassId: '' });
   const [selectedTransferStudents, setSelectedTransferStudents] = useState([]);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedStatusStudents, setSelectedStatusStudents] = useState([]);
@@ -35,18 +32,56 @@ function StudentManagement() {
   const [auditLogs, setAuditLogs] = useState([]);
   const [auditLoading, setAuditLoading] = useState(false);
 
-  const token = localStorage.getItem('token');
-  const config = {
-    headers: {
-      'Authorization': token?.startsWith('Bearer ') ? token : `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
+  // Fetch data using api.js
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading({ students: true, classes: true });
+      setError(null);
+
+      // Use the api.js methods
+      const studentsRes = await students.getAll();
+      const classesRes = await classes.getAll();
+
+      // Handle different response formats - ensure we get arrays
+      const studentList = studentsRes.data?.results?.data || 
+                          studentsRes.data?.data || 
+                          (Array.isArray(studentsRes.data) ? studentsRes.data : []);
+      
+      const classList = classesRes.data?.results?.data || 
+                        classesRes.data?.data || 
+                        (Array.isArray(classesRes.data) ? classesRes.data : []);
+
+      // Ensure we're setting arrays
+      setStudentsList(Array.isArray(studentList) ? studentList : []);
+      setFilteredStudents(Array.isArray(studentList) ? studentList : []);
+      setClassesList(Array.isArray(classList) ? classList : []);
+
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setError('Failed to connect to backend server. Please ensure the server is running.');
+      // Set empty arrays on error
+      setStudentsList([]);
+      setFilteredStudents([]);
+      setClassesList([]);
+    } finally {
+      setLoading({ students: false, classes: false });
     }
-  };
+  }, []);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Filter students
   const filterStudents = useCallback(() => {
-    let filtered = [...students];
+    // Ensure studentsList is an array
+    if (!Array.isArray(studentsList)) {
+      setFilteredStudents([]);
+      return;
+    }
+
+    let filtered = [...studentsList];
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -68,52 +103,12 @@ function StudentManagement() {
     }
 
     setFilteredStudents(filtered);
-  }, [students, searchTerm, selectedClass, selectedStatus]);
+  }, [studentsList, searchTerm, selectedClass, selectedStatus]);
 
   // Apply filters when dependencies change
   useEffect(() => {
     filterStudents();
   }, [filterStudents]);
-
-  // Fetch data
-  const fetchData = async () => {
-    try {
-      setLoading({ students: true, classes: true });
-      setError(null);
-
-      const token = localStorage.getItem('token');
-      const config = {
-        headers: {
-          'Authorization': token?.startsWith('Bearer ') ? token : `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }
-      };
-
-      const studentsRes = await axios.get(`${API_BASE_URL}/api/students/`, config);
-      const studentList = studentsRes.data?.results?.data || 
-                          studentsRes.data?.data || 
-                          (Array.isArray(studentsRes.data) ? studentsRes.data : []);
-      setStudents(studentList);
-      setFilteredStudents(studentList);
-      
-      const classesRes = await axios.get(`${API_BASE_URL}/api/classes/`, config);
-      const classList = classesRes.data?.results?.data || 
-                        classesRes.data?.data || 
-                        (Array.isArray(classesRes.data) ? classesRes.data : []);
-      setClasses(classList);
-
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      setError('Failed to connect to backend server. Please ensure the server is running.');
-    } finally {
-      setLoading({ students: false, classes: false });
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   // Handlers
   const handleSearch = (e) => {
@@ -129,10 +124,17 @@ function StudentManagement() {
     window.open(`${API_BASE_URL}/api/students/${studentId}/id-card/`, '_blank');
   };
 
+  /* eslint-disable-next-line no-unused-vars */
   const viewAuditHistory = async (studentId) => {
     setAuditLoading(true);
     setShowAuditModal(true);
     try {
+      const token = localStorage.getItem('token');
+      const config = {
+        headers: {
+          'Authorization': token?.startsWith('Bearer ') ? token : `Bearer ${token}`
+        }
+      };
       const response = await axios.get(`${API_BASE_URL}/api/audit-logs/?student_id=${studentId}`, config);
       const logs = response.data.results || response.data || [];
       setAuditLogs(logs);
@@ -155,7 +157,6 @@ function StudentManagement() {
       email: student.email,
       address: student.address,
       current_class: student.current_class,
-      stream: student.stream,
       roll_number: student.roll_number,
       status: student.status,
       guardian_name: student.guardian_name,
@@ -178,8 +179,18 @@ function StudentManagement() {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem('token');
+      const config = {
+        headers: {
+          'Authorization': token?.startsWith('Bearer ') ? token : `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
       const response = await axios.put(
-        `${API_BASE_URL}/api/students/${selectedStudent.id}/`, editFormData, config);
+        `${API_BASE_URL}/api/students/${selectedStudent.id}/`,
+        editFormData,
+        config
+      );
       
       if (response.status === 200 || response.data.success) {
         setSuccessMessage(`Student updated successfully!`);
@@ -199,6 +210,13 @@ function StudentManagement() {
     }
 
     try {
+      const token = localStorage.getItem('token');
+      const config = {
+        headers: {
+          'Authorization': token?.startsWith('Bearer ') ? token : `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
       const response = await axios.patch(
         `${API_BASE_URL}/api/students/${studentId}/`,
         { status: newStatus },
@@ -232,6 +250,13 @@ function StudentManagement() {
     }
 
     try {
+      const token = localStorage.getItem('token');
+      const config = {
+        headers: {
+          'Authorization': token?.startsWith('Bearer ') ? token : `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
       const response = await axios.post(
         `${API_BASE_URL}/api/students/bulk-status-update/`,
         {
@@ -268,6 +293,12 @@ function StudentManagement() {
     }
 
     try {
+      const token = localStorage.getItem('token');
+      const config = {
+        headers: {
+          'Authorization': token?.startsWith('Bearer ') ? token : `Bearer ${token}`
+        }
+      };
       const response = await axios.delete(`${API_BASE_URL}/api/students/${studentId}/`, config);
       
       if (response.data.success) {
@@ -289,8 +320,7 @@ function StudentManagement() {
         'Full Name': `${student.first_name} ${student.middle_name || ''} ${student.last_name}`.trim(),
         'Gender': student.gender,
         'Date of Birth': student.date_of_birth,
-        'Class': classes.find(c => c.id == student.current_class)?.class_name || 'Not assigned',
-        'Stream': student.stream || 'N/A',
+        'Class': classesList.find(c => c.id == student.current_class)?.class_name || 'Not assigned',
         'Roll Number': student.roll_number || 'N/A',
         'Phone': student.phone || 'N/A',
         'Email': student.email || 'N/A',
@@ -313,7 +343,7 @@ function StudentManagement() {
       const maxWidth = exportData.reduce((w, r) => Math.max(w, r['Full Name']?.length || 0), 10);
       const wscols = [
         {wch: 15}, {wch: Math.min(maxWidth, 30)}, {wch: 10}, {wch: 12},
-        {wch: 20}, {wch: 10}, {wch: 12}, {wch: 15}, {wch: 25},
+        {wch: 20}, {wch: 12}, {wch: 15}, {wch: 25},
         {wch: 20}, {wch: 15}, {wch: 15}, {wch: 15}, {wch: 10},
         {wch: 12}, {wch: 30}, {wch: 15}, {wch: 20}, {wch: 15}
       ];
@@ -356,6 +386,13 @@ function StudentManagement() {
     }
 
     try {
+      const token = localStorage.getItem('token');
+      const config = {
+        headers: {
+          'Authorization': token?.startsWith('Bearer ') ? token : `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
       const updatePromises = selectedTransferStudents.map(studentId =>
         axios.put(`${API_BASE_URL}/api/students/${studentId}/`, {
           current_class: transferData.targetClassId,
@@ -367,9 +404,7 @@ function StudentManagement() {
       alert(`Successfully transferred ${selectedTransferStudents.length} student(s)!`);
       setShowTransferModal(false);
       setSelectedTransferStudents([]);
-      setTransferData({
-        targetClassId: '',
-      });
+      setTransferData({ targetClassId: '' });
       await fetchData();
     } catch (error) {
       console.error('Error transferring students:', error);
@@ -378,20 +413,23 @@ function StudentManagement() {
   };
 
   const getStatistics = () => {
-    const totalStudents = students.length;
-    const activeStudents = students.filter(s => s.status?.toLowerCase() === 'active').length;
-    const maleStudents = students.filter(s => s.gender?.toLowerCase() === 'male').length;
-    const femaleStudents = students.filter(s => s.gender?.toLowerCase() === 'female').length;
-    const archivedStudents = students.filter(s => s.archived === true || s.status?.toLowerCase() === 'archived').length;
+    // Ensure studentsList is an array
+    const studentsArray = Array.isArray(studentsList) ? studentsList : [];
+    
+    const totalStudents = studentsArray.length;
+    const activeStudents = studentsArray.filter(s => s.status?.toLowerCase() === 'active').length;
+    const maleStudents = studentsArray.filter(s => s.gender?.toLowerCase() === 'male').length;
+    const femaleStudents = studentsArray.filter(s => s.gender?.toLowerCase() === 'female').length;
+    const archivedStudents = studentsArray.filter(s => s.archived === true || s.status?.toLowerCase() === 'archived').length;
 
     const studentsByClass = {};
-    students.forEach(student => {
+    studentsArray.forEach(student => {
       const classId = student.current_class;
       if (classId) {
         if (!studentsByClass[classId]) {
           studentsByClass[classId] = {
             count: 0,
-            className: classes.find(c => c.id == classId)?.class_name || 'Unknown'
+            className: classesList.find(c => c.id == classId)?.class_name || 'Unknown'
           };
         }
         studentsByClass[classId].count++;
@@ -440,8 +478,8 @@ function StudentManagement() {
               </button>
               <button
                 onClick={() => setShowTransferModal(true)}
-                disabled={students.length === 0}
-                className={`px-4 py-2 ${students.length === 0 ? 'bg-gray-400' : 'bg-purple-600'} text-white rounded-lg hover:bg-purple-700 flex items-center`}
+                disabled={studentsList.length === 0}
+                className={`px-4 py-2 ${studentsList.length === 0 ? 'bg-gray-400' : 'bg-purple-600'} text-white rounded-lg hover:bg-purple-700 flex items-center`}
               >
                 <i className="fas fa-exchange-alt mr-2"></i>
                 Transfer Students
@@ -578,7 +616,7 @@ function StudentManagement() {
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="all">All Classes</option>
-                {classes.map(cls => (
+                {classesList.map(cls => (
                   <option key={cls.id} value={cls.id}>
                     {cls.class_name} ({cls.class_code})
                   </option>
@@ -630,7 +668,7 @@ function StudentManagement() {
               {filteredStudents.length} Student{filteredStudents.length !== 1 ? 's' : ''} Found
             </h3>
             <div className="text-sm text-gray-600">
-              Showing {filteredStudents.length} of {students.length} total students
+              Showing {filteredStudents.length} of {studentsList.length} total students
             </div>
           </div>
         </div>
@@ -680,7 +718,7 @@ function StudentManagement() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-2">
-                          <div><span className="text-sm text-gray-600">Class:</span> <span className="font-medium">{classes.find(c => c.id == student.current_class)?.class_name || 'Not assigned'}</span></div>
+                          <div><span className="text-sm text-gray-600">Class:</span> <span className="font-medium">{classesList.find(c => c.id == student.current_class)?.class_name || 'Not assigned'}</span></div>
                           <div><span className="text-sm text-gray-600">Stream:</span> <span>{student.stream || 'N/A'}</span></div>
                           <div><span className="text-sm text-gray-600">Roll:</span> <span>{student.roll_number || 'N/A'}</span></div>
                           <div><span className="text-sm text-gray-600">Phone:</span> <span>{student.phone || 'N/A'}</span></div>
@@ -758,7 +796,7 @@ function StudentManagement() {
                   </div>
                   
                   <div className="space-y-3 mb-6">
-                    <div className="flex justify-between"><span className="text-sm text-gray-600">Class:</span><span className="font-medium">{classes.find(c => c.id == student.current_class)?.class_name || 'Not assigned'}</span></div>
+                    <div className="flex justify-between"><span className="text-sm text-gray-600">Class:</span><span className="font-medium">{classesList.find(c => c.id == student.current_class)?.class_name || 'Not assigned'}</span></div>
                     <div className="flex justify-between"><span className="text-sm text-gray-600">Date of Birth:</span><span>{student.date_of_birth}</span></div>
                     <div className="flex justify-between"><span className="text-sm text-gray-600">Guardian:</span><span className="font-medium">{student.guardian_name}</span></div>
                     <div className="flex justify-between"><span className="text-sm text-gray-600">Guardian Phone:</span><span>{student.guardian_phone}</span></div>
@@ -782,130 +820,6 @@ function StudentManagement() {
           </div>
         )}
       </div>
-
-      {/* Student Details Modal */}
-      {showStudentModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-gray-800">Student Details</h3>
-                <button onClick={() => setShowStudentModal(false)} className="text-gray-400 hover:text-gray-600">
-                  <i className="fas fa-times"></i>
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-6 overflow-auto max-h-[70vh]">
-              <div className="space-y-6">
-                <div className="bg-gray-50 rounded-lg p-5">
-                  <div className="flex items-center mb-4">
-                    <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center mr-4">
-                      <i className={`fas fa-${selectedStudent.gender === 'male' ? 'male' : 'female'} text-blue-600 text-3xl`}></i>
-                    </div>
-                    <div>
-                      <h4 className="text-2xl font-bold text-gray-800">{selectedStudent.first_name} {selectedStudent.middle_name} {selectedStudent.last_name}</h4>
-                      <p className="text-gray-600">{selectedStudent.admission_no}</p>
-                      <div className="flex items-center mt-2 space-x-4">
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          selectedStudent.status === 'active' ? 'bg-green-100 text-green-800' :
-                          selectedStudent.status === 'inactive' ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {selectedStudent.status}
-                        </span>
-                        <span className="text-sm text-gray-600"><i className="fas fa-calendar-alt mr-1"></i>Admitted: {new Date(selectedStudent.admission_date).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <button onClick={() => printIDCard(selectedStudent.id)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center">
-                    <i className="fas fa-id-card mr-2"></i> Print ID Card
-                  </button>
-                  <button onClick={() => viewAuditHistory(selectedStudent.id)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center">
-                    <i className="fas fa-history mr-2"></i> View History
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-white rounded-lg p-5 border border-gray-200">
-                    <h5 className="font-semibold text-gray-700 mb-3">Personal Information</h5>
-                    <div className="space-y-2">
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Date of Birth:</span><span>{selectedStudent.date_of_birth}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Gender:</span><span className="capitalize">{selectedStudent.gender}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Nationality:</span><span>{selectedStudent.nationality}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Religion:</span><span>{selectedStudent.religion || 'Not specified'}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Blood Group:</span><span>{selectedStudent.blood_group || 'Not specified'}</span></div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-lg p-5 border border-gray-200">
-                    <h5 className="font-semibold text-gray-700 mb-3">Academic Information</h5>
-                    <div className="space-y-2">
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Current Class:</span><span className="font-medium">{classes.find(c => c.id == selectedStudent.current_class)?.class_name || 'Not assigned'}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Stream:</span><span>{selectedStudent.stream || 'N/A'}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Roll Number:</span><span>{selectedStudent.roll_number || 'N/A'}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Admission Type:</span><span className="capitalize">{selectedStudent.admission_type}</span></div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-lg p-5 border border-gray-200">
-                    <h5 className="font-semibold text-gray-700 mb-3">Contact Information</h5>
-                    <div className="space-y-2">
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Address:</span><span className="text-right">{selectedStudent.address}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">City:</span><span>{selectedStudent.city}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Country:</span><span>{selectedStudent.country}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Phone:</span><span>{selectedStudent.phone || 'N/A'}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Email:</span><span>{selectedStudent.email || 'N/A'}</span></div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-lg p-5 border border-gray-200">
-                    <h5 className="font-semibold text-gray-700 mb-3">Guardian Information</h5>
-                    <div className="space-y-2">
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Guardian Name:</span><span className="font-medium">{selectedStudent.guardian_name}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Relationship:</span><span>{selectedStudent.guardian_relation}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Guardian Phone:</span><span>{selectedStudent.guardian_phone}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Guardian Email:</span><span>{selectedStudent.guardian_email || 'N/A'}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Emergency Contact:</span><span>{selectedStudent.emergency_contact_name} ({selectedStudent.emergency_contact})</span></div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-white rounded-lg p-5 border border-gray-200">
-                    <h5 className="font-semibold text-gray-700 mb-3">Medical Information</h5>
-                    <div className="space-y-2">
-                      <div><span className="text-sm text-gray-600 block mb-1">Medical Conditions:</span><p className="text-gray-800">{selectedStudent.medical_conditions || 'None'}</p></div>
-                      <div><span className="text-sm text-gray-600 block mb-1">Allergies:</span><p className="text-gray-800">{selectedStudent.allergies || 'None'}</p></div>
-                      <div><span className="text-sm text-gray-600 block mb-1">Medication:</span><p className="text-gray-800">{selectedStudent.medication || 'None'}</p></div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-lg p-5 border border-gray-200">
-                    <h5 className="font-semibold text-gray-700 mb-3">Previous School Information</h5>
-                    <div className="space-y-2">
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Previous School:</span><span>{selectedStudent.previous_school || 'N/A'}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Previous Class:</span><span>{selectedStudent.previous_class || 'N/A'}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Transfer Certificate No:</span><span>{selectedStudent.transfer_certificate_no || 'N/A'}</span></div>
-                      <div className="flex justify-between"><span className="text-sm text-gray-600">Expected Graduation:</span><span>{selectedStudent.expected_graduation_date || 'N/A'}</span></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end space-x-3">
-              <button onClick={() => { setShowStudentModal(false); handleEditStudent(selectedStudent); }} className="px-6 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium">
-                <i className="fas fa-edit mr-2"></i>Edit Student
-              </button>
-              <button onClick={() => setShowStudentModal(false)} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium">Close</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Audit History Modal */}
       {showAuditModal && (

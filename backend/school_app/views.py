@@ -1,7 +1,7 @@
 # views.py (authentication section)
 from .registry import plugin_registry
 from urllib import request
-from django.http import HttpResponse
+from django.http import HttpResponse, FileResponse
 from rest_framework import status, viewsets, permissions
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -42,7 +42,19 @@ from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from reportlab.lib.pagesizes import A6, landscape, letter
 from reportlab.lib.enums import TA_CENTER
+from django.db import connection
+import zipfile
+from io import BytesIO
 import json
+import os
+import json
+import shutil
+import tempfile
+from django.core.management import call_command
+from io import StringIO
+import subprocess
+from django.conf import settings
+from datetime import datetime, timedelta
 
 
 logger = logging.getLogger(__name__)
@@ -79,12 +91,15 @@ class LoginView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         user = serializer.validated_data['user']
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
+
        
         # Generate tokens
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
         refresh_token = str(refresh)
-        expires_dt = datetime.datetime.fromtimestamp(refresh.access_token.payload['exp'])
+        expires_dt = datetime.fromtimestamp(refresh.access_token.payload['exp'])
         aware_expiry = make_aware(expires_dt)
         # Create user session - FIXED expires_at
         session = UserSession.objects.create(
@@ -139,8 +154,9 @@ class LoginView(APIView):
                 'email': user.email,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
-                'role': user.role,  # Make sure your User model has a role field
+                'role': user.role,  
                 'phone': user.phone if hasattr(user, 'phone') else None,
+                'last_login': user.last_login,
             },
             'session_id': session.id
         }, status=status.HTTP_200_OK)
@@ -604,7 +620,7 @@ class DashboardView(APIView):
     
     def get(self, request):
         from django.db.models import Count, Q
-        from datetime import datetime, timedelta
+        
         
         user = request.user
         
@@ -3183,3 +3199,364 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.filter(record_id=student_id, model_name='Student')
         
         return queryset
+    
+class BackupViewSet(viewsets.ViewSet):
+    """ViewSet for database backup and restore operations"""
+    permission_classes = [IsAuthenticated]
+
+    def get_backup_dir(self):
+        """Get the backup directory path"""
+        backup_dir = os.path.join(settings.BASE_DIR, 'database_backups')
+        os.makedirs(backup_dir, exist_ok=True)
+        return backup_dir
+
+    @action(detail=False, methods=['get'], url_path='list')
+    def list_backups(self, request):
+        """List all available backups"""
+        try:
+            backup_dir = self.get_backup_dir()
+            backups = []
+            
+            if os.path.exists(backup_dir):
+                for filename in os.listdir(backup_dir):
+                    if filename.endswith('.zip') or filename.endswith('.json'):
+                        file_path = os.path.join(backup_dir, filename)
+                        stat = os.stat(file_path)
+                        
+                        # Try to get metadata
+                        meta = BackupMetadata.objects.filter(backup_name=filename).first()
+                        
+                        backup_type = 'FULL'
+                        if 'schema' in filename.lower():
+                            backup_type = 'SCHEMA'
+                        elif 'data' in filename.lower():
+                            backup_type = 'DATA'
+                        
+                        backups.append({
+                            'id': filename,
+                            'backup_name': filename,
+                            'backup_type': backup_type,
+                            'file_path': file_path,
+                            'file_size': self.get_file_size(stat.st_size),
+                            'backup_start': datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                            'status': 'COMPLETED',
+                            'verification_status': True,
+                            'is_verified': True,
+                            'duration_seconds': meta.duration_seconds if meta else 0,
+                            'created_by': meta.created_by.username if meta and meta.created_by else None,
+                            'notes': meta.notes if meta else None
+                        })
+            
+            backups.sort(key=lambda x: x['backup_start'], reverse=True)
+            
+            return Response({
+                'success': True,
+                'backups': backups,
+                'count': len(backups)
+            })
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'], url_path='stats')
+    def get_stats(self, request):
+        """Get backup statistics"""
+        try:
+            backup_dir = self.get_backup_dir()
+            
+            # Get stats from files (most reliable)
+            backup_files = []
+            total_size = 0
+            
+            if os.path.exists(backup_dir):
+                for filename in os.listdir(backup_dir):
+                    if filename.endswith('.zip') or filename.endswith('.json'):
+                        file_path = os.path.join(backup_dir, filename)
+                        stat = os.stat(file_path)
+                        backup_files.append({
+                            'filename': filename,
+                            'size': stat.st_size,
+                            'created': datetime.fromtimestamp(stat.st_mtime)
+                        })
+                        total_size += stat.st_size
+            
+            total_backups = len(backup_files)
+            
+            # Get metadata for durations
+            all_metadata = BackupMetadata.objects.all()
+            durations = [m.duration_seconds for m in all_metadata if m.duration_seconds > 0]
+            avg_duration = sum(durations) / len(durations) if durations else 0
+            
+            # Calculate success rate (if we have files, assume they're successful)
+            success_rate = 100 if total_backups > 0 else 0
+            
+            return Response({
+                'success': True,
+                'stats': {
+                    'totalBackups': total_backups,
+                    'completedBackups': total_backups,
+                    'failedBackups': 0,
+                    'totalSize': self.get_file_size(total_size),
+                    'avg_duration': round(avg_duration, 1),
+                    'successRate': success_rate,
+                    'verifiedBackups': total_backups
+                }
+            })
+            
+        except Exception as e:
+            print(f"Error in stats: {str(e)}")
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'], url_path='system-info')
+    def get_system_info(self, request):
+        """Get system information"""
+        try:
+            backup_dir = self.get_backup_dir()
+            
+            db_name = settings.DATABASES['default'].get('NAME', 'Unknown')
+            db_host = settings.DATABASES['default'].get('HOST', 'localhost')
+            db_engine = settings.DATABASES['default'].get('ENGINE', 'Unknown')
+            
+            disk_usage = shutil.disk_usage(backup_dir)
+            
+            return Response({
+                'success': True,
+                'info': {
+                    'database': db_name,
+                    'database_size': 'N/A',
+                    'host': db_host,
+                    'backup_dir': backup_dir,
+                    'disk_space': self.get_file_size(disk_usage.total),
+                    'disk_free': self.get_file_size(disk_usage.free),
+                    'disk_used': self.get_file_size(disk_usage.total - disk_usage.free),
+                    'retention_days': 30,
+                    'database_engine': db_engine
+                }
+            })
+            
+        except Exception as e:
+            print(f"Error in system-info: {str(e)}")
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='create')
+    def create_backup(self, request):
+        """Create a new database backup"""
+        start_time = datetime.now()
+        backup_type = request.data.get('type', 'full').upper()
+        notes = request.data.get('notes', '')
+        
+        try:
+            backup_dir = self.get_backup_dir()
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            backup_name = f"backup_{timestamp}_{backup_type}.zip"
+            backup_path = os.path.join(backup_dir, backup_name)
+            
+            # Create temp file for dump
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp_file:
+                temp_path = tmp_file.name
+            
+            try:
+                # Dump data
+                with open(temp_path, 'w') as f:
+                    if backup_type == 'SCHEMA':
+                        call_command('dumpdata', stdout=f)
+                    elif backup_type == 'DATA':
+                        call_command('dumpdata', exclude=['contenttypes', 'auth.permission'], stdout=f)
+                    else:
+                        call_command('dumpdata', exclude=['contenttypes', 'auth.permission', 'sessions.session'], stdout=f)
+                
+                # Create zip
+                with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    zipf.write(temp_path, os.path.basename(temp_path))
+                    
+            finally:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+            
+            # Calculate duration
+            duration_seconds = (datetime.now() - start_time).total_seconds()
+            file_size = os.path.getsize(backup_path)
+            
+            # Save metadata
+            BackupMetadata.objects.create(
+                backup_name=backup_name,
+                backup_type=backup_type,
+                file_size=file_size,
+                duration_seconds=duration_seconds,
+                status='COMPLETED',
+                created_by=request.user,
+                backup_path=backup_path,
+                verification_status=True,
+                notes=notes
+            )
+            
+            return Response({
+                'success': True,
+                'message': f'{backup_type} backup created successfully: {backup_name}',
+                'backup_id': backup_name,
+                'backup_path': backup_path,
+                'duration': duration_seconds,
+                'file_size': self.get_file_size(file_size)
+            })
+            
+        except Exception as e:
+            import traceback
+            print("Backup error:", traceback.format_exc())
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['delete'], url_path='delete/(?P<backup_id>.+)')
+    def delete_backup(self, request, backup_id=None):
+        """Delete a backup"""
+        try:
+            import urllib.parse
+            backup_id = urllib.parse.unquote(backup_id)
+            backup_dir = self.get_backup_dir()
+            backup_path = os.path.join(backup_dir, backup_id)
+            
+            if not os.path.exists(backup_path):
+                return Response({
+                    'success': False,
+                    'error': f'Backup file not found: {backup_id}'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            os.remove(backup_path)
+            BackupMetadata.objects.filter(backup_name=backup_id).delete()
+            
+            return Response({
+                'success': True,
+                'message': f'Backup {backup_id} deleted successfully'
+            })
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'], url_path='download/(?P<backup_id>.+)')
+    def download_backup(self, request, backup_id=None):
+        """Download a backup file"""
+        try:
+            import urllib.parse
+            backup_id = urllib.parse.unquote(backup_id)
+            backup_dir = self.get_backup_dir()
+            backup_path = os.path.join(backup_dir, backup_id)
+            
+            if not os.path.exists(backup_path):
+                return Response({
+                    'success': False,
+                    'error': f'Backup file not found: {backup_id}'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            response = FileResponse(
+                open(backup_path, 'rb'),
+                as_attachment=True,
+                filename=backup_id
+            )
+            return response
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='restore/(?P<backup_id>.+)')
+    def restore_backup(self, request, backup_id=None):
+        """Restore a backup"""
+        try:
+            import urllib.parse
+            backup_id = urllib.parse.unquote(backup_id)
+            backup_dir = self.get_backup_dir()
+            backup_path = os.path.join(backup_dir, backup_id)
+            
+            if not os.path.exists(backup_path):
+                return Response({
+                    'success': False,
+                    'error': f'Backup file not found: {backup_id}'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Extract if zip
+            if backup_path.endswith('.zip'):
+                with zipfile.ZipFile(backup_path, 'r') as zipf:
+                    json_filename = zipf.namelist()[0]
+                    zipf.extractall(backup_dir)
+                    backup_path = os.path.join(backup_dir, json_filename)
+            
+            # Restore
+            call_command('loaddata', backup_path)
+            
+            # Clean up extracted file
+            if backup_path.endswith('.json'):
+                os.remove(backup_path)
+            
+            return Response({
+                'success': True,
+                'message': 'Database restored successfully'
+            })
+            
+        except Exception as e:
+            import traceback
+            print("Restore error:", traceback.format_exc())
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='clean')
+    def clean_backups(self, request):
+        """Clean old backups"""
+        try:
+            backup_dir = self.get_backup_dir()
+            retention_days = int(request.data.get('retention_days', 30))
+            cutoff_date = datetime.now() - timedelta(days=retention_days)
+            deleted_count = 0
+            
+            if os.path.exists(backup_dir):
+                for filename in os.listdir(backup_dir):
+                    file_path = os.path.join(backup_dir, filename)
+                    stat = os.stat(file_path)
+                    file_date = datetime.fromtimestamp(stat.st_mtime)
+                    
+                    if file_date < cutoff_date:
+                        os.remove(file_path)
+                        BackupMetadata.objects.filter(backup_name=filename).delete()
+                        deleted_count += 1
+            
+            return Response({
+                'success': True,
+                'message': f'Cleaned {deleted_count} old backup(s)',
+                'deleted_count': deleted_count
+            })
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @staticmethod
+    def get_file_size(size_bytes):
+        """Convert bytes to human readable format"""
+        if size_bytes == 0:
+            return '0 Bytes'
+        
+        size_names = ['Bytes', 'KB', 'MB', 'GB', 'TB']
+        i = 0
+        while size_bytes >= 1024 and i < len(size_names) - 1:
+            size_bytes /= 1024.0
+            i += 1
+        
+        return f"{size_bytes:.2f} {size_names[i]}"

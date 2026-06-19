@@ -1,4 +1,3 @@
-import React from 'react';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import ReceiptIcon from '@mui/icons-material/Receipt';
@@ -11,7 +10,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import { DatabaseIcon } from 'lucide-react';
 
-export const SysAdminData = [
+const SysAdminData = [
     // {
     //     title: "Dashboard",
     //     icon: <DashboardIcon />,
@@ -59,11 +58,11 @@ export const SysAdminData = [
     //     link: "/SystemAdminPortal/Settings"
     // },
     
-    {
-        title: "LogOut",
-        icon: <LogoutIcon sx={{color:'white',fontSize:30}}/>,
-        link: "/Login"
-    },
+   // {
+      //  title: "LogOut",
+       // icon: <LogoutIcon sx={{color:'white',fontSize:30}}/>,
+       // link: "/Login"
+   // },
 ];
 
 export default SysAdminData;

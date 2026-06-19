@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Database, Download, Upload, Clock,
   CheckCircle, AlertCircle, Trash2, Eye, FileText,
@@ -6,7 +6,7 @@ import {
   Play, StopCircle, Settings, Loader,
   ExternalLink, FolderOpen, Copy, RefreshCw, Archive, ShieldCheck
 } from 'lucide-react';
-import axios from 'axios';
+import api from '../../api';
 
 const BackupRestore = () => {
   const [backups, setBackups] = useState([]);
@@ -24,17 +24,15 @@ const BackupRestore = () => {
   const [systemInfo, setSystemInfo] = useState({});
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
 
-  const API_BASE_URL = 'http://localhost:8000/api';
-
-  const showNotification = (message, type = 'success') => {
+  const showNotification = useCallback((message, type = 'success') => {
     setNotification({ show: true, message, type });
     setTimeout(() => setNotification({ show: false, message: '', type: '' }), 5000);
-  };
+  }, []);
 
-  const fetchBackups = async () => {
+  const fetchBackups = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE_URL}/backups/list`);
+      const response = await api.get('/api/backups/list/');
       setBackups(response.data.backups || []);
     } catch (error) {
       console.error('Failed to fetch backups:', error);
@@ -42,25 +40,25 @@ const BackupRestore = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showNotification]);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/backups/stats`);
+      const response = await api.get('/api/backups/stats/');
       setStats(response.data.stats || {});
     } catch (error) {
       console.error('Failed to fetch stats:', error);
     }
-  };
+  }, []);
 
-  const fetchSystemInfo = async () => {
+  const fetchSystemInfo = useCallback(async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/backups/system-info`);
+      const response = await api.get('/api/backups/system-info/');
       setSystemInfo(response.data.info || {});
     } catch (error) {
       console.error('Failed to fetch system info:', error);
     }
-  };
+  }, []);
 
   const handleStartBackup = async (type = 'full') => {
     if (!window.confirm(`Start ${type} backup? This may take several minutes.`)) {
@@ -70,7 +68,7 @@ const BackupRestore = () => {
     try {
       setBackupLoading(true);
       
-      const response = await axios.post(`${API_BASE_URL}/backups/create`, {
+      const response = await api.post('/api/backups/create/', {
         type,
         description: `Manual ${type} backup`
       });
@@ -98,7 +96,7 @@ const BackupRestore = () => {
 
     try {
       setBackupLoading(true);
-      const response = await axios.post(`${API_BASE_URL}/backups/restore/${backupId}?confirm=true`);
+      const response = await api.post(`/api/backups/restore/${backupId}/?confirm=true`);
       showNotification(response.data.message, 'success');
     } catch (error) {
       console.error('Restore failed:', error);
@@ -114,7 +112,7 @@ const BackupRestore = () => {
     }
 
     try {
-      await axios.delete(`${API_BASE_URL}/backups/delete/${backupId}`);
+      await api.delete(`/api/backups/delete/${backupId}/`);
       showNotification('Backup deleted successfully', 'success');
       fetchBackups();
       fetchStats();
@@ -126,7 +124,7 @@ const BackupRestore = () => {
 
   const handleDownloadBackup = async (backupId, backupName) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/backups/download/${backupId}`, {
+      const response = await api.get(`/api/backups/download/${backupId}/`, {
         responseType: 'blob'
       });
       
@@ -161,7 +159,7 @@ const BackupRestore = () => {
     }
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/backups/clean`);
+      const response = await api.post('/api/backups/clean/');
       showNotification(response.data.message, 'success');
       fetchBackups();
       fetchStats();
@@ -182,10 +180,13 @@ const BackupRestore = () => {
   };
 
   const formatDuration = (seconds) => {
-    if (!seconds) return 'N/A';
+    if (!seconds || seconds === 0) return 'N/A';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+    if (mins > 0) {
+      return `${mins}m ${secs}s`;
+    }
+    return `${secs}s`;
   };
 
   const getStatusColor = (status) => {
@@ -201,7 +202,7 @@ const BackupRestore = () => {
     fetchBackups();
     fetchStats();
     fetchSystemInfo();
-  }, []);
+  }, [fetchBackups, fetchStats, fetchSystemInfo]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-25 to-gray-50 p-6 md:p-8 overflow-auto">
@@ -736,10 +737,23 @@ const BackupRestore = () => {
                       ></div>
                     </div>
                   </div>
-                  <div className="p-5 border border-gray-200 rounded-xl bg-gray-50/50">
-                    <p className="text-sm text-gray-600 mb-2">Average Duration</p>
-                    <p className="text-3xl font-bold text-blue-600">{formatDuration(stats.avg_duration)}</p>
-                    <p className="text-sm text-gray-600 mt-2">Last backup: {formatDuration(stats.avg_duration)}</p>
+                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">Avg Duration</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                          {stats.avg_duration ? formatDuration(stats.avg_duration) : 'N/A'}
+                        </p>
+                        {stats.last_duration && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            Last: {formatDuration(stats.last_duration)}
+                          </p>
+                        )}
+                      </div>
+                      <div className="p-2 bg-purple-100 rounded-lg">
+                        <Clock className="h-5 w-5 text-purple-600" />
+                      </div>
+                    </div>
                   </div>
                   <div className="p-5 border border-gray-200 rounded-xl bg-gray-50/50">
                     <p className="text-sm text-gray-600 mb-2">Storage Utilization</p>

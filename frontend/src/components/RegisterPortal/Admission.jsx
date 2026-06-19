@@ -1,13 +1,10 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+import React, { useState, useEffect, useCallback } from 'react';
+import { students, classes } from '../../api';
 
 function Admission() {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [classes, setClasses] = useState([]);
-  const [students, setStudents] = useState([]);
+  const [classesList, setClassesList] = useState([]);
+  const [studentsList, setStudentsList] = useState([]);
   const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -24,36 +21,30 @@ function Admission() {
     emergency_contact_name: '', status: 'Active'
   });
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('token');
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : ''
-    };
-  };
-
-  const fetchAdmissionNumber = async () => {
+  const fetchAdmissionNumber = useCallback(async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/students/generate-admission-number/`, {
-        headers: getAuthHeaders()
-      });
+      const response = await students.generateAdmissionNumber();
       return response.data.success ? response.data.admission_no : '';
     } catch (err) {
       console.error('Admission Number Fetch Error:', err);
       return '';
     }
-  };
+  }, []);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [resClasses, resStudents, nextAdm] = await Promise.all([
-        axios.get(`${API_BASE_URL}/api/classes/`, { headers: getAuthHeaders() }),
-        axios.get(`${API_BASE_URL}/api/students/`, { headers: getAuthHeaders() }),
+        classes.getAll(),
+        students.getAll(),
         fetchAdmissionNumber()
       ]);
-      setClasses(resClasses.data.data || []);
-      setStudents(resStudents.data.data || []);
+      
+      const classData = resClasses.data.data || resClasses.data || [];
+      const studentData = resStudents.data.data || resStudents.data || [];
+      
+      setClassesList(classData);
+      setStudentsList(studentData);
       setFormData(prev => ({ ...prev, admission_no: nextAdm }));
     } catch (err) {
       console.error("Data sync error:", err);
@@ -61,9 +52,9 @@ function Admission() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchAdmissionNumber]);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -87,9 +78,7 @@ function Admission() {
 
   // Validate phone number (Kenyan format)
   const validatePhone = (phone) => {
-    if (!phone) return true; // Phone is optional
-    // Kenyan phone numbers: 0712345678, 0722345678, 0732345678, 0742345678, 0752345678, 0762345678, 0772345678, 0782345678, 0792345678
-    // Also with country code: 254712345678
+    if (!phone) return true;
     const phoneRegex = /^(?:(?:254|0)?[17][0-9]{8})$/;
     return phoneRegex.test(phone.replace(/\s/g, ''));
   };
@@ -97,14 +86,12 @@ function Admission() {
   const validateForm = () => {
     const errors = {};
 
-    // Required fields
     if (!formData.first_name) errors.first_name = 'First name is required';
     if (!formData.last_name) errors.last_name = 'Last name is required';
     if (!formData.gender) errors.gender = 'Gender is required';
     if (!formData.date_of_birth) errors.date_of_birth = 'Date of birth is required';
     if (!formData.city) errors.city = 'City is required';
 
-    // Phone validation
     if (formData.phone && !validatePhone(formData.phone)) {
       errors.phone = 'Please enter a valid phone number (e.g., 0712345678)';
     }
@@ -122,7 +109,6 @@ function Admission() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validate form
     if (!validateForm()) {
       return;
     }
@@ -130,19 +116,14 @@ function Admission() {
     setIsSubmitting(true);
     setError('');
 
-    // Format data for backend
     const dataToSubmit = {
       ...formData,
-      // Capitalize gender for backend
       gender: formData.gender ? formData.gender.charAt(0).toUpperCase() + formData.gender.slice(1) : '',
-      // Remove admission_no as backend will generate it
       admission_no: undefined
     };
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/students/`, dataToSubmit, { 
-        headers: getAuthHeaders() 
-      });
+      const response = await students.create(dataToSubmit);
 
       if (response.data.success) {
         setSuccessMessage(`Successfully registered: ${formData.first_name} ${formData.last_name} (Admission No: ${response.data.data?.admission_no || formData.admission_no})`);
@@ -154,7 +135,7 @@ function Admission() {
           first_name: '', middle_name: '', last_name: '',
           date_of_birth: '', gender: '',
           phone: '', email: '', address: '', city: '',
-          current_class: '', stream: '',
+          current_class: '',
           father_name: '', father_phone: '',
           mother_name: '', mother_phone: '',
           guardian_name: '', guardian_relation: '', guardian_phone: '',
@@ -164,7 +145,6 @@ function Admission() {
         await fetchData();
         setTimeout(() => setSuccessMessage(''), 10000);
       } else {
-        // Handle validation errors from backend
         let errorMsg = response.data.error || "Registration failed. Please try again.";
         if (response.data.details) {
           const details = response.data.details;
@@ -182,7 +162,6 @@ function Admission() {
     } catch (err) {
       console.error("Registration error:", err);
       
-      // Handle validation errors from backend
       if (err.response?.data?.details) {
         const details = err.response.data.details;
         const detailMessages = Object.entries(details).map(([field, messages]) => {
@@ -216,23 +195,7 @@ function Admission() {
                 </span>
                 Student Admission
               </h1>
-              {successMessage && (
-                <div className="mb-6 p-4 bg-green-50 border-l-4 border-green-500 rounded-lg shadow-sm flex items-center gap-3 animate-fade-in">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p className="text-green-800 font-medium">{successMessage}</p>
-                </div>
-              )}
-              {error && (
-                <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg shadow-sm flex items-center gap-3">
-                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p className="text-red-800 font-medium">{error}</p>
-                </div>
-              )}
-              <p className="text-gray-500 mt-1 ml-2">Register new students </p>
+              <p className="text-gray-500 mt-1 ml-2">Register new students</p>
             </div>
             <button
               onClick={fetchData}
@@ -253,7 +216,7 @@ function Admission() {
               <div>
                 <p className="text-sm text-gray-500 font-medium">Total Students</p>
                 <p className="text-2xl font-bold text-gray-800 mt-1">
-                  {loading ? '...' : students.length}
+                  {loading ? '...' : studentsList.length}
                 </p>
               </div>
               <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
@@ -269,7 +232,7 @@ function Admission() {
               <div>
                 <p className="text-sm text-gray-500 font-medium">Available Classes</p>
                 <p className="text-2xl font-bold text-gray-800 mt-1">
-                  {loading ? '...' : classes.length}
+                  {loading ? '...' : classesList.length}
                 </p>
               </div>
               <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
@@ -313,18 +276,6 @@ function Admission() {
           </div>
         </div>
 
-        {/* Error/Success Messages */}
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
-            <div className="flex items-start">
-              <svg className="w-5 h-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="text-red-700 whitespace-pre-line">{error}</span>
-            </div>
-          </div>
-        )}
-
         {successMessage && (
           <div className="mb-4 p-4 bg-green-50 border-l-4 border-green-500 rounded-r-lg">
             <div className="flex items-center">
@@ -332,6 +283,17 @@ function Admission() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span className="text-green-700 whitespace-pre-line">{successMessage}</span>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-red-700 whitespace-pre-line">{error}</span>
             </div>
           </div>
         )}
@@ -444,7 +406,6 @@ function Admission() {
                   <option value="male">Male</option>
                   <option value="female">Female</option>
                 </select>
-                
               </div>
 
               {/* Phone */}
@@ -460,7 +421,6 @@ function Admission() {
                   placeholder="0712345678"
                   className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none"
                 />
-                
               </div>
 
               {/* Email */}
@@ -505,7 +465,7 @@ function Admission() {
                   className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none bg-white"
                 >
                   <option value="">Select Class</option>
-                  {classes.map(cls => (
+                  {classesList.map(cls => (
                     <option key={cls.id} value={cls.id}>
                       {cls.class_name}
                     </option>
@@ -513,7 +473,7 @@ function Admission() {
                 </select>
               </div>
 
-              {/* Section */}
+              {/* Stream */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                   Stream
@@ -522,7 +482,7 @@ function Admission() {
                   name="stream" 
                   value={formData.stream} 
                   onChange={handleInputChange} 
-                  placeholder="winners"
+                  placeholder="e.g., Winners"
                   className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none"
                 />
               </div>
