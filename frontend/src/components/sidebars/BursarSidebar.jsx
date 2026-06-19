@@ -264,7 +264,7 @@ function BursarSidebar() {
                             flex items-center p-2.5 rounded-lg cursor-pointer transition-all duration-300 group
                             ${window.location.pathname === subVal.link 
                               ? 'bg-blue-600/80 text-white shadow-lg border border-blue-400/50' 
-                              : 'hover:bg-blue-600/50 text-red-200 hover:text-white border border-transparent hover:border-blue-500/50'
+                              : 'hover:bg-blue-600/50 text-indigo-200 hover:text-white border border-transparent hover:border-blue-500/50'
                             }
                           `}
                           onClick={(e) => {
@@ -341,17 +341,17 @@ function BursarSidebar() {
         }
 
         .scrollbar-thin::-webkit-scrollbar-track {
-          background: rgba(153, 27, 27, 0.3); /* red-900/30 */
+          background: #1e3a8a; /* indigo-900/30 */
           border-radius: 20px;
         }
 
         .scrollbar-thin::-webkit-scrollbar-thumb {
-          background: #ef4444; /* red-500 */
+          background: #818cf8; /* indigo-500 */
           border-radius: 20px;
         }
 
         .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-          background: #b91c1c;; /* red-600 */
+          background: #6366f1; /* indigo-600 */
         }
       `}</style>
     </div>

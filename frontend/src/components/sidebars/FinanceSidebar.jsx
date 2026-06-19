@@ -56,8 +56,8 @@ function Sidebar() {
       {/* Sidebar */}
       <div 
         className={`
-          h-screen bg-gradient-to-b from-red-700 to-red-800 
-          shadow-2xl border-r border-red-600 transition-all duration-300 ease-in-out z-50
+          h-screen bg-gradient-to-b from-indigo-700 to-indigo-800 
+          shadow-2xl border-r border-indigo-600 transition-all duration-300 ease-in-out z-50
           ${isCollapsed ? 'w-20' : 'w-64'}
           /* Mobile styles */
           fixed lg:relative top-0 left-0
@@ -201,20 +201,20 @@ function Sidebar() {
           </ul>
         </nav>
 
-        <div className="px-3 pb-4 border-t border-red-400/20 mt-2 pt-4">
+        <div className="px-3 pb-4 border-t border-indigo-400/20 mt-2 pt-4">
           <SidebarItem 
             to="/logout" 
             icon={FiLogOut} 
             label="Logout" 
             isCollapsed={isCollapsed}
-            colorClass="text-white hover:bg-red-700" 
+            colorClass="text-white hover:bg-indigo-700" 
             onClick={() => handleNavigation('/logout')}
           />
         </div>
 
         {/* Footer */}
         <div className={`
-          border-t border-blue-700 p-4 transition-all duration-300
+          border-t border-indigo-700 p-4 transition-all duration-300
           ${isCollapsed ? 'text-center' : ''}
         `}>
           <div className={`
