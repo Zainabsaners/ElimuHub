@@ -22,7 +22,7 @@ const Toast = React.memo(({ show, message, type, onClose }) => {
 
   const bgColor = {
     success: 'bg-gradient-to-r from-green-500 to-emerald-500',
-    error: 'bg-gradient-to-r from-red-500 to-rose-500',
+    error: 'bg-gradient-to-r from-indigo-500 to-rose-500',
     info: 'bg-gradient-to-r from-indigo-500 to-indigo-500',
     warning: 'bg-gradient-to-r from-yellow-500 to-amber-500'
   }[type] || 'bg-gradient-to-r from-indigo-500 to-indigo-500';
@@ -60,7 +60,7 @@ const CategoryForm = React.memo(({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category Code <span className="text-red-500">*</span>
+              Category Code <span className="text-indigo-500">*</span>
             </label>
             <input
               type="text"
@@ -73,7 +73,7 @@ const CategoryForm = React.memo(({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category Name <span className="text-red-500">*</span>
+              Category Name <span className="text-indigo-500">*</span>
             </label>
             <input
               type="text"
@@ -182,7 +182,7 @@ const StructureForm = React.memo(({
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Academic Year <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Academic Year <span className="text-indigo-500">*</span></label>
             <select
               value={formData.academic_year || ''}
               onChange={(e) => onStructureChange('academic_year', e.target.value)}
@@ -194,7 +194,7 @@ const StructureForm = React.memo(({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Term <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Term <span className="text-indigo-500">*</span></label>
             <select
               value={formData.term || 'Term 1'}
               onChange={(e) => onStructureChange('term', e.target.value)}
@@ -210,7 +210,7 @@ const StructureForm = React.memo(({
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Class <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Class <span className="text-indigo-500">*</span></label>
             <select
               value={formData.class_id || ''}
               onChange={(e) => onStructureChange('class_id', e.target.value)}
@@ -224,7 +224,7 @@ const StructureForm = React.memo(({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Fee Category <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Fee Category <span className="text-indigo-500">*</span></label>
             <select
               value={formData.category || ''}
               onChange={(e) => onStructureChange('category', e.target.value)}
@@ -241,7 +241,7 @@ const StructureForm = React.memo(({
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Amount (KES) <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Amount (KES) <span className="text-indigo-500">*</span></label>
             <input
               type="number"
               value={formData.amount || ''}
@@ -255,7 +255,7 @@ const StructureForm = React.memo(({
             <p className="text-xs text-gray-500 mt-1">Amount must be greater than zero</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Due Date <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Due Date <span className="text-indigo-500">*</span></label>
             <input
               type="date"
               value={formData.due_date || ''}
@@ -609,7 +609,7 @@ const FeeManagement = () => {
   const getStatusBadge = (isActive) => {
     return isActive 
       ? 'bg-green-100 text-green-800 border border-green-200' 
-      : 'bg-red-100 text-red-800 border border-red-200';
+      : 'bg-indigo-100 text-indigo-800 border border-indigo-200';
   };
 
   return (
@@ -802,7 +802,7 @@ const FeeManagement = () => {
                           </button>
                           <button 
                             onClick={() => handleDelete('category', c.id)} 
-                            className="text-red-600 hover:bg-red-50 p-2 rounded-lg border border-red-100"
+                            className="text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg border border-indigo-100"
                             disabled={deletingId === c.id}
                           >
                             {deletingId === c.id ? <FiLoader className="animate-spin" size={16} /> : <FiTrash2 size={16} />}
@@ -858,7 +858,7 @@ const FeeManagement = () => {
                           </button>
                           <button 
                             onClick={() => handleDelete('structure', s.id)} 
-                            className="text-red-600 hover:bg-red-50 p-2 rounded-lg border border-red-100"
+                            className="text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg border border-indigo-100"
                             disabled={deletingId === s.id}
                           >
                             {deletingId === s.id ? <FiLoader className="animate-spin" size={16} /> : <FiTrash2 size={16} />}

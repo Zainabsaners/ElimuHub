@@ -208,7 +208,7 @@ const Dashboard = () => {
       MPESA: "bg-blue-100 text-blue-800 border border-blue-200",
       BANK_TRANSFER: "bg-purple-100 text-purple-800 border border-purple-200",
       CHEQUE: "bg-yellow-100 text-yellow-800 border border-yellow-200",
-      CREDIT_CARD: "bg-red-100 text-red-800 border border-red-200",
+      CREDIT_CARD: "bg-indigo-100 text-indigo-800 border border-indigo-200",
       BANK_DEPOSIT: "bg-cyan-100 text-cyan-800 border border-cyan-200",
       OTHER: "bg-gray-100 text-gray-800 border border-gray-200"
     };
@@ -387,7 +387,7 @@ const Dashboard = () => {
         </div>
 
         {/* Overdue Payments */}
-        <div className="bg-gradient-to-r from-red-500 to-rose-600 rounded-xl shadow-lg p-5 text-white transform transition-all duration-200 hover:shadow-xl">
+        <div className="bg-gradient-to-r from-indigo-500 to-rose-600 rounded-xl shadow-lg p-5 text-white transform transition-all duration-200 hover:shadow-xl">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium opacity-90 mb-2">Overdue Payments</p>
@@ -517,7 +517,7 @@ const Dashboard = () => {
                         transaction.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
                         transaction.status === 'VERIFIED' ? 'bg-blue-100 text-blue-800' :
                         transaction.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
+                        'bg-indigo-100 text-indigo-800'
                       }`}>
                         {transaction.status}
                       </span>
@@ -601,8 +601,8 @@ const Dashboard = () => {
 
       {/* Error Display */}
       {error && (
-        <div className="mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-red-600 font-medium">
+        <div className="mt-6 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-indigo-600 font-medium">
             <FiAlertCircle />
             Error loading dashboard data: {error}
           </div>

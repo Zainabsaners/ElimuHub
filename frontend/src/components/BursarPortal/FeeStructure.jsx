@@ -253,13 +253,13 @@ const FeeStructure = () => {
   const renderNotification = () => (
     notification.show && (
       <div className={`fixed top-4 right-4 z-50 max-w-sm w-full animate-slide-in ${
-        notification.type === 'error' ? 'bg-red-50 border-red-200' :
+        notification.type === 'error' ? 'bg-indigo-50 border-indigo-200' :
         notification.type === 'success' ? 'bg-green-50 border-green-200' :
         'bg-blue-50 border-blue-200'
       } border rounded-lg shadow-lg p-4 transition-all duration-300`}>
         <div className="flex items-start">
           <div className={`flex-shrink-0 ${
-            notification.type === 'error' ? 'text-red-400' :
+            notification.type === 'error' ? 'text-indigo-400' :
             notification.type === 'success' ? 'text-green-400' :
             'text-blue-400'
           }`}>
@@ -273,7 +273,7 @@ const FeeStructure = () => {
           </div>
           <div className="ml-3 flex-1">
             <p className={`text-sm font-medium ${
-              notification.type === 'error' ? 'text-red-800' :
+              notification.type === 'error' ? 'text-indigo-800' :
               notification.type === 'success' ? 'text-green-800' :
               'text-blue-800'
             }`}>
@@ -535,7 +535,7 @@ const FeeStructure = () => {
     if (error) {
       return (
         <div className="bg-white rounded-xl shadow-sm p-8">
-          <div className="text-center text-red-600">
+          <div className="text-center text-indigo-600">
             <AlertCircle className="w-12 h-12 mx-auto mb-4" />
             <p className="text-lg font-semibold mb-2">{error}</p>
             <button
@@ -643,7 +643,7 @@ const FeeStructure = () => {
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
                         structure.is_active 
                           ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
+                          : 'bg-indigo-100 text-indigo-800'
                       }`}>
                         {structure.is_active ? 'ACTIVE' : 'INACTIVE'}
                       </span>
@@ -835,7 +835,7 @@ const FeeStructure = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="text-center p-4 bg-white rounded-lg">
                   <div className="text-sm text-gray-600 mb-2">Installment Allowed</div>
-                  <div className={`text-lg font-semibold ${selectedStructure.installment_allowed ? 'text-green-600' : 'text-red-600'}`}>
+                  <div className={`text-lg font-semibold ${selectedStructure.installment_allowed ? 'text-green-600' : 'text-indigo-600'}`}>
                     {selectedStructure.installment_allowed ? 'Yes' : 'No'}
                   </div>
                   {selectedStructure.installment_allowed && (
@@ -847,7 +847,7 @@ const FeeStructure = () => {
                 
                 <div className="text-center p-4 bg-white rounded-lg">
                   <div className="text-sm text-gray-600 mb-2">Discount Allowed</div>
-                  <div className={`text-lg font-semibold ${selectedStructure.discount_allowed ? 'text-green-600' : 'text-red-600'}`}>
+                  <div className={`text-lg font-semibold ${selectedStructure.discount_allowed ? 'text-green-600' : 'text-indigo-600'}`}>
                     {selectedStructure.discount_allowed ? 'Yes' : 'No'}
                   </div>
                   {selectedStructure.discount_allowed && (
@@ -879,7 +879,7 @@ const FeeStructure = () => {
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                       selectedStructure.is_active 
                         ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
+                        : 'bg-indigo-100 text-indigo-800'
                     }`}>
                       {selectedStructure.is_active ? 'ACTIVE' : 'INACTIVE'}
                     </span>

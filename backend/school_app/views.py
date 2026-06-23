@@ -2670,19 +2670,210 @@ class FeeDashboardAPIView(APIView):
         except Exception as e:
             print(f"CRITICAL DASHBOARD ERROR: {str(e)}")
             return Response({'success': False, 'message': str(e)}, status=500)
-class ExpenseViewSet(viewsets.ModelViewSet):
-    queryset = Expense.objects.all().order_by('-date')
-    serializer_class = ExpenseSerializer 
+        
+class PaymentMethodViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing payment methods"""
+    queryset = PaymentMethod.objects.filter(is_active=True)
+    serializer_class = PaymentMethodSerializer
     permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        search = self.request.query_params.get('search', '')
+        if search:
+            queryset = queryset.filter(name__icontains=search)
+        return queryset
+    
+    @action(detail=False, methods=['get'], url_path='defaults')
+    def get_default_methods(self, request):
+        """Get or create default payment methods"""
+        defaults = [
+            {'name': 'Cash', 'code': 'CASH', 'description': 'Physical cash payment', 'requires_reference': False},
+            {'name': 'Mobile Money', 'code': 'MOBILE', 'description': 'M-Pesa, Airtel Money, etc.', 'requires_reference': True},
+            {'name': 'Bank Transfer', 'code': 'BANK', 'description': 'Direct bank transfer', 'requires_reference': True},
+            {'name': 'Cheque', 'code': 'CHEQUE', 'description': 'Bank cheque payment', 'requires_reference': True},
+            {'name': 'Credit Card', 'code': 'CARD', 'description': 'Credit/debit card payment', 'requires_reference': True},
+        ]
+        
+        created = []
+        existing = []
+        
+        for method_data in defaults:
+            method, is_created = PaymentMethod.objects.get_or_create(
+                code=method_data['code'],
+                defaults={
+                    'name': method_data['name'],
+                    'description': method_data['description'],
+                    'requires_reference': method_data['requires_reference'],
+                    'is_active': True
+                }
+            )
+            if is_created:
+                created.append(method)
+            else:
+                existing.append(method)
+        
+        return Response({
+            'success': True,
+            'message': f'Created {len(created)} new payment methods, {len(existing)} already exist',
+            'data': PaymentMethodSerializer(created + existing, many=True).data
+        })
+class ExpenseCategoryViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing expense categories"""
+    queryset = ExpenseCategory.objects.filter(is_active=True)
+    serializer_class = ExpenseCategorySerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        search = self.request.query_params.get('search', '')
+        if search:
+            queryset = queryset.filter(name__icontains=search)
+        return queryset
+    
+    def perform_create(self, serializer):
+        serializer.save()
+    
+    @action(detail=False, methods=['get'], url_path='defaults')
+    def get_default_categories(self, request):
+        """Get or create default expense categories"""
+        defaults = [
+            {'name': 'Academic Supplies', 'description': 'Books, stationery, teaching materials', 'color': '#4F46E5'},
+            {'name': 'Utilities', 'description': 'Electricity, water, internet', 'color': '#059669'},
+            {'name': 'Sports & Activities', 'description': 'Sports equipment, events', 'color': '#D97706'},
+            {'name': 'Staff Development', 'description': 'Training, workshops, seminars', 'color': '#7C3AED'},
+            {'name': 'Building Maintenance', 'description': 'Repairs and upkeep', 'color': '#DC2626'},
+            {'name': 'Equipment Maintenance', 'description': 'Lab equipment, computers', 'color': '#0891B2'},
+            {'name': 'Grounds Maintenance', 'description': 'Gardening, landscaping', 'color': '#059669'},
+            {'name': 'Vehicle Maintenance', 'description': 'School transport, repairs', 'color': '#D97706'},
+            {'name': 'Security Maintenance', 'description': 'Security systems, personnel', 'color': '#4B5563'},
+            {'name': 'Salaries', 'description': 'Staff salaries and wages', 'color': '#1F2937'},
+            {'name': 'Rent', 'description': 'School premises rent', 'color': '#DC2626'},
+            {'name': 'Security', 'description': 'Security services', 'color': '#4B5563'},
+            {'name': 'Transport', 'description': 'School transport services', 'color': '#0891B2'},
+            {'name': 'Food & Catering', 'description': 'School meals, events', 'color': '#D97706'},
+            {'name': 'Technology', 'description': 'Software, hardware, IT services', 'color': '#7C3AED'},
+            {'name': 'Other', 'description': 'Miscellaneous expenses', 'color': '#6B7280'},
+        ]
+        
+        created = []
+        existing = []
+        
+        for cat_data in defaults:
+            category, is_created = ExpenseCategory.objects.get_or_create(
+                name=cat_data['name'],
+                defaults={
+                    'description': cat_data['description'],
+                    'color': cat_data['color'],
+                    'is_active': True
+                }
+            )
+            if is_created:
+                created.append(category)
+            else:
+                existing.append(category)
+        
+        return Response({
+            'success': True,
+            'message': f'Created {len(created)} new categories, {len(existing)} already exist',
+            'data': ExpenseCategorySerializer(created + existing, many=True).data
+        })
 
+class ExpenseViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing expenses"""
+    queryset = Expense.objects.all()
+    serializer_class = ExpenseSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filters
+        category = self.request.query_params.get('category')
+        if category:
+            queryset = queryset.filter(category_id=category)
+        
+        status = self.request.query_params.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+        
+        start_date = self.request.query_params.get('start_date')
+        if start_date:
+            queryset = queryset.filter(date__gte=start_date)
+        
+        end_date = self.request.query_params.get('end_date')
+        if end_date:
+            queryset = queryset.filter(date__lte=end_date)
+        
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                models.Q(title__icontains=search) |
+                models.Q(vendor__icontains=search) |
+                models.Q(description__icontains=search) |
+                models.Q(category_name__icontains=search)
+            )
+        
+        return queryset.select_related('category', 'created_by')
+    
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
-
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return Response({"success": True, "data": serializer.data})
     
+    def perform_update(self, serializer):
+        # If status is changing to approved, set approval info
+        if 'status' in self.request.data and self.request.data['status'] == 'approved':
+            serializer.save(
+                approved_by=self.request.user,
+                approved_at=timezone.now()
+            )
+        else:
+            serializer.save()
+    
+    @action(detail=False, methods=['get'], url_path='stats')
+    def get_stats(self, request):
+        """Get expense statistics"""
+        from django.db.models import Sum, Count, Q
+        
+        total = Expense.objects.aggregate(total=Sum('amount'))['total'] or 0
+        approved = Expense.objects.filter(status='approved').aggregate(total=Sum('amount'))['total'] or 0
+        pending = Expense.objects.filter(status='pending').aggregate(total=Sum('amount'))['total'] or 0
+        cancelled = Expense.objects.filter(status='cancelled').aggregate(total=Sum('amount'))['total'] or 0
+        
+        # Category breakdown
+        categories = ExpenseCategory.objects.filter(is_active=True)
+        breakdown = []
+        for cat in categories:
+            amount = Expense.objects.filter(category=cat).aggregate(total=Sum('amount'))['total'] or 0
+            if amount > 0:
+                breakdown.append({
+                    'name': cat.name,
+                    'amount': amount,
+                    'color': cat.color
+                })
+        
+        return Response({
+            'success': True,
+            'data': {
+                'total_expenses': total,
+                'approved_expenses': approved,
+                'pending_expenses': pending,
+                'cancelled_expenses': cancelled,
+                'category_breakdown': breakdown,
+                'monthly_budget': 500000  # You can make this configurable
+            }
+        })
+        
+    def approve_expense(self, request, expense_id):
+        expense = Expense.objects.get(id=expense_id)
+        user = request.user
+        
+        # Logic: Only Principals/Finance Managers can approve
+        if user.role == 'principal' or user.role == 'finance_manager':
+            expense.status = 'approved'
+            expense.save()
+            return Response({"status": "success"})
+        return Response({"error": "Unauthorized"}, status=403)
+
 class StaffViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Staff.objects.filter(status='Active')
     serializer_class = StaffSerializer # Create this in serializers.py

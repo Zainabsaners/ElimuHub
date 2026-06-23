@@ -1820,6 +1820,25 @@ class PayrollRecord(models.Model):
     
     def __str__(self):
         return f"{self.staff.staff_id} - {self.payroll_period.period_name} - {self.net_salary}"
+    
+    
+class PaymentMethod(models.Model):
+    """Payment methods for expenses and transactions"""
+    name = models.CharField(max_length=50, unique=True)
+    code = models.CharField(max_length=20, unique=True)
+    description = models.TextField(blank=True, null=True)
+    icon = models.CharField(max_length=50, blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    requires_reference = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['name']
+        verbose_name_plural = "Payment Methods"
+    
+    def __str__(self):
+        return self.name
 
 class StaffLoan(models.Model):
     LOAN_TYPE_CHOICES = [
@@ -2523,17 +2542,71 @@ class Parent(models.Model):
     
     def __str__(self):
         return f"{self.full_name} ({self.parent_id})"
+class ExpenseCategory(models.Model):
+    """Expense categories for tracking school expenditures"""
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+    color = models.CharField(max_length=20, default='#4F46E5')  # For UI badges
+    icon = models.CharField(max_length=50, blank=True, null=True)  # For UI icons
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['name']
+        verbose_name_plural = "Expense Categories"
+    
+    def __str__(self):
+        return self.name
+
 class Expense(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
     title = models.CharField(max_length=200)
-    category = models.CharField(max_length=100)
+    category = models.ForeignKey(
+        ExpenseCategory, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='expenses'
+    )
+    category_name = models.CharField(max_length=100, blank=True, null=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     date = models.DateField()
     vendor = models.CharField(max_length=200)
-    payment_method = models.CharField(max_length=50)
-    description = models.TextField(blank=True)
-    status = models.CharField(max_length=20, default='pending') # pending, approved, cancelled
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-
-
-
-
+    payment_method = models.ForeignKey(
+        PaymentMethod,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='expenses'
+    )
+    payment_method_name = models.CharField(max_length=50, blank=True, null=True)  # For backward compatibility
+    description = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    
+    # Audit fields
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_expenses')
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_expenses')
+    approved_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-date', '-created_at']
+        indexes = [
+            models.Index(fields=['category']),
+            models.Index(fields=['status']),
+            models.Index(fields=['date']),
+        ]
+    
+    def save(self, *args, **kwargs):
+        if self.category:
+            self.category_name = self.category.name
+        if self.payment_method:
+            self.payment_method_name = self.payment_method.name
+        super().save(*args, **kwargs)

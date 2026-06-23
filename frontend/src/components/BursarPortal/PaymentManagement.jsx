@@ -1,1847 +1,1177 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useCallback } from "react";
 import { 
-  Search, 
-  User, 
-  DollarSign,
-  CreditCard, 
-  Printer, 
-  Loader2,
-  X,
-  ChevronRight,
-  Receipt,
-  BookOpen,
-  AlertCircle,
-  Check,
-  FileText,
-  Calculator
-} from 'lucide-react';
+  FiDollarSign, FiPrinter, FiDownload, 
+  FiCreditCard, FiPieChart, FiBarChart2, 
+  FiTrendingUp, FiCalendar, FiFileText,
+  FiCheckCircle, FiAlertCircle, FiClock,
+  FiSend, FiRefreshCw, FiEdit, FiTrash2,
+  FiUser, FiBriefcase, FiHome, FiPlus, FiX,
+  FiXCircle, FiBell
+} from "react-icons/fi";
+import { staff, payroll } from '../../api';
 
-// Configure axios base URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://*.onrender.com";
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  return {
-    headers: {
-      'Authorization': token?.startsWith('Bearer ') ? token : `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    }
-  };
-};
-
-const PaymentManagement = () => {
-  // State management
-  const [searchMode, setSearchMode] = useState('admission');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedClass, setSelectedClass] = useState('');
-  const [classes, setClasses] = useState([]);
-  const [currentClass, setCurrentClass] = useState('');
-  
-  // Student data
-  const [students, setStudents] = useState([]);
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [studentBalance, setStudentBalance] = useState(0);
-  const [creditBalance, setCreditBalance] = useState(0);
-  const [invoices, setInvoices] = useState([]);
-  
-  // Payment data
-  const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('Cash');
-  const [paymentReference, setPaymentReference] = useState('');
-  const [mobileMoneyNo, setMobileMoneyNo] = useState('');
-  const [bankName, setBankName] = useState('');
-  const [chequeNo, setChequeNo] = useState('');
-  
-  // Recent transactions
-  const [recentTransactions, setRecentTransactions] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingStudents, setLoadingStudents] = useState(false);
-  
-  // UI states
-  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [showReceipt, setShowReceipt] = useState(false);
-  const [currentTransaction, setCurrentTransaction] = useState(null);
-  const [showClassStudents, setShowClassStudents] = useState(false);
-  const [classStudents, setClassStudents] = useState([]);
-
-
-  const netCredit = creditBalance - paymentAmount;
-  // Initialize
+// Toast Notification Component
+const Toast = React.memo(({ show, message, type, onClose }) => {
   useEffect(() => {
-    fetchClasses();
-    fetchRecentTransactions();
+    if (show) {
+      const timer = setTimeout(() => onClose(), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [show, onClose]);
+
+  if (!show) return null;
+
+  const bgColor = {
+    success: 'bg-gradient-to-r from-green-500 to-emerald-500',
+    error: 'bg-gradient-to-r from-red-500 to-rose-500',
+    info: 'bg-gradient-to-r from-indigo-500 to-indigo-500',
+    warning: 'bg-gradient-to-r from-yellow-500 to-amber-500'
+  }[type] || 'bg-gradient-to-r from-indigo-500 to-indigo-500';
+
+  const icon = {
+    success: <FiCheckCircle className="text-white" size={20} />,
+    error: <FiXCircle className="text-white" size={20} />,
+    info: <FiBell className="text-white" size={20} />,
+    warning: <FiAlertCircle className="text-white" size={20} />
+  }[type] || <FiBell className="text-white" size={20} />;
+
+  return (
+    <div className="fixed top-4 right-4 z-50 animate-slide-in">
+      <div className={`${bgColor} text-white rounded-xl shadow-lg p-4 min-w-[300px] flex items-center gap-3`}>
+        <div className="flex-shrink-0">{icon}</div>
+        <div className="flex-grow"><p className="font-medium">{message}</p></div>
+        <button onClick={onClose} className="flex-shrink-0 text-white hover:text-gray-200">
+          <FiX size={18} />
+        </button>
+      </div>
+    </div>
+  );
+});
+
+const PayrollManagement = () => {
+  const [employees, setEmployees] = useState([]);
+  const [payrollComponents, setPayrollComponents] = useState([]);
+  const [payrollRecords, setPayrollRecords] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [toast, setToast] = useState({ show: false, message: "", type: "info" });
+
+  // Payroll processing state
+  const [currentPayroll, setCurrentPayroll] = useState({
+    month: new Date().toISOString().slice(0, 7),
+    selectedEmployees: [],
+    status: "pending"
+  });
+
+  // Financial statistics
+  const [financialStats, setFinancialStats] = useState({
+    totalProcessed: 0,
+    currentMonthPayroll: 0,
+    taxLiabilities: 0,
+    pendingPayments: 0
+  });
+
+  // Selected employee for adjustments
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [employeeAdjustments, setEmployeeAdjustments] = useState({
+    overtime: 0,
+    bonus: 0,
+    absentDays: 0,
+    notes: ""
+  });
+
+  const showToast = useCallback((message, type = "info") => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "info" }), 3000);
   }, []);
 
-  // Notification handler
-  const showNotification = (type, message, duration = 5000) => {
-    setNotification({ show: true, type, message });
-    setTimeout(() => setNotification({ show: false, type: '', message: '' }), duration);
-  };
+  const closeToast = useCallback(() => {
+    setToast({ show: false, message: "", type: "info" });
+  }, []);
 
-  // Fetch classes from backend
-  const fetchClasses = async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/classes/`, getAuthHeaders());
-      if (response.data.success) {
-        setClasses(response.data.data || []);
-      } else {
-        showNotification('error', 'Failed to load classes');
-      }
-    } catch (error) {
-      console.error('Error fetching classes:', error);
-      showNotification('error', 'Failed to load classes');
-    }
-  };
-
-  const fetchRecentTransactions = async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/fees/transactions/?limit=5`, getAuthHeaders());
-      // Django standard unwrap
-      const data = response.data.results || response.data.data || response.data;
-      setRecentTransactions(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error fetching recent transactions:', error);
-    }
-  };
-
-  // 2. Fix Search Students (Standardize to Django list query)
-  const searchStudents = useCallback(async () => {
-    // 1. Validation
-    if (!searchQuery.trim() && searchMode !== 'class') {
-      showNotification('error', `Please enter search term`);
-      return;
-    }
-
-    if (searchMode === 'class' && !selectedClass) {
-      showNotification('error', `Please select a class`);
-      return;
-    }
-
-    setLoadingStudents(true);
-    try {
-      const token = localStorage.getItem('token');
-      const config = {
-        headers: { 
-          'Authorization': token?.startsWith('Bearer ') ? token : `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        params: {}
-      };
-
-      // 2. Mapping parameters to backend
-      if (searchMode === 'class') {
-        config.params.class_id = selectedClass;
-      } else {
-        config.params.search = searchQuery.trim();
-      }
-
-      // 3. Execution
-      const response = await axios.get(`${API_BASE_URL}/api/students/`, config);
-      const rawData = response.data;
-
-      // 4. Robust Unwrapping based on your ViewSet list() method
-      let foundStudents = [];
-      
-      if (rawData.success && Array.isArray(rawData.data)) {
-        // Matches your custom: return Response({"success": True, "data": serializer.data})
-        foundStudents = rawData.data;
-      } else if (rawData.results) {
-        // Fallback for standard Django Rest Framework pagination
-        foundStudents = Array.isArray(rawData.results) ? rawData.results : (rawData.results.data || []);
-      } else {
-        // Last resort fallback
-        foundStudents = Array.isArray(rawData) ? rawData : [];
-      }
-
-      // 5. Update UI States
-      if (foundStudents.length === 0) {
-        showNotification('info', 'No students found matching your criteria');
-      }
-
-      setStudents(foundStudents);
-
-      if (searchMode === 'class') {
-        setClassStudents(foundStudents);
-        setShowClassStudents(true);
-      }
-      
-    } catch (error) {
-      console.error('Search Error:', error);
-      if (error.response?.status === 400) {
-        showNotification('error', "Invalid admission number");
-      } else if (error.response?.status === 404) {
-        showNotification('error', "Search endpoint not found.");
-      } else {
-        showNotification('error', "Failed to search students");
-      }
-    } finally {
-      setLoadingStudents(false);
-    }
-  }, [searchMode, searchQuery, selectedClass, API_BASE_URL]);
-  
-  const selectStudent = async (student) => {
-    setSelectedStudent(student);
-    setStudents([]);
+  // Fetch payroll data from API using service layer
+  const fetchPayrollData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     
     try {
-      const headers = getAuthHeaders();
+      // Fetch staff/employees using staff service
+      const staffResponse = await staff.getAll();
       
-      // 1. Refresh invoices for the correct year and term
-     /* await axios.post(`${API_BASE_URL}/api/fees/generate-invoices/`, {
-          student_id: student.id,
-          academic_year: "2026/2027 Academic Year", 
-          term: "Term 1"
-      }, headers);*/
-
-      // 2. Fetch fresh student data
-      const response = await axios.get(`${API_BASE_URL}/api/students/${student.id}/`, headers);
-
-      // 3. CORRECT UNWRAP: Based on your network tab, data is in response.data.data
-      if (response.data && response.data.success) {
-        const studentInfo = response.data.data;
-        
-        // Update states using the specific keys from your JSON
-        setStudentBalance(parseFloat(studentInfo.current_balance || 0)); 
-        setInvoices(studentInfo.invoices || []);
-        setCurrentClass(studentInfo.current_class_name || "N/A");
-        
-        showNotification('success', 'Balance loaded successfully');
+      let staffData = [];
+      if (staffResponse.data.results && Array.isArray(staffResponse.data.results)) {
+        staffData = staffResponse.data.results;
+      } else if (staffResponse.data.success && Array.isArray(staffResponse.data.data)) {
+        staffData = staffResponse.data.data;
+      } else if (Array.isArray(staffResponse.data)) {
+        staffData = staffResponse.data;
+      } else if (staffResponse.data.data && Array.isArray(staffResponse.data.data)) {
+        staffData = staffResponse.data.data;
       }
+      
+      // Map staff data to employee format
+      const mappedEmployees = staffData.map(staff => ({
+        id: staff.id,
+        full_name: staff.full_name || staff.name || `${staff.first_name || ''} ${staff.last_name || ''}`.trim() || 'Unknown',
+        name: staff.full_name || staff.name || `${staff.first_name || ''} ${staff.last_name || ''}`.trim() || 'Unknown',
+        position: staff.position || staff.role || staff.job_title || 'Staff',
+        department: staff.department || staff.department_name || 'General',
+        basic_salary: parseFloat(staff.basic_salary) || parseFloat(staff.salary) || 0,
+        bank_name: staff.bank_name || staff.bank || 'N/A',
+        bank_account: staff.bank_account || staff.account_number || 'N/A',
+        bankName: staff.bank_name || staff.bank || 'N/A',
+        bankAccount: staff.bank_account || staff.account_number || 'N/A',
+        email: staff.email || '',
+        phone: staff.phone || staff.phone_number || '',
+        status: staff.status || 'active'
+      }));
+      
+      setEmployees(mappedEmployees);
+      
+      // Fetch payroll components using payroll service
+      try {
+        const compResponse = await payroll.getComponents();
+        
+        let compData = [];
+        if (compResponse.data.results && Array.isArray(compResponse.data.results)) {
+          compData = compResponse.data.results;
+        } else if (compResponse.data.success && Array.isArray(compResponse.data.data)) {
+          compData = compResponse.data.data;
+        } else if (Array.isArray(compResponse.data)) {
+          compData = compResponse.data;
+        } else if (compResponse.data.data && Array.isArray(compResponse.data.data)) {
+          compData = compResponse.data.data;
+        }
+        setPayrollComponents(compData);
+      } catch (compError) {
+        console.error('Error fetching payroll components:', compError);
+        setPayrollComponents([]);
+      }
+      
+      // Fetch payroll records using payroll service
+      try {
+        const recordResponse = await payroll.getPeriods();
+        
+        let recordData = [];
+        if (recordResponse.data.results && Array.isArray(recordResponse.data.results)) {
+          recordData = recordResponse.data.results;
+        } else if (recordResponse.data.success && Array.isArray(recordResponse.data.data)) {
+          recordData = recordResponse.data.data;
+        } else if (Array.isArray(recordResponse.data)) {
+          recordData = recordResponse.data;
+        } else if (recordResponse.data.data && Array.isArray(recordResponse.data.data)) {
+          recordData = recordResponse.data.data;
+        }
+        setPayrollRecords(recordData);
+      } catch (recordError) {
+        console.error('Error fetching payroll records:', recordError);
+        setPayrollRecords([]);
+      }
+      
+      showToast('Payroll data loaded successfully', 'success');
+      
     } catch (error) {
-      console.error('Account Load Error:', error);
-      showNotification('error', 'Failed to load balance');
+      console.error("Payroll Sync Error:", error);
+      setError(error.message || 'Failed to load payroll data');
+      showToast('Failed to load payroll data. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
-// IMPROVED: Automatically account for credits in the displayed balance
-const getCurrentBalance = () => {
-  // Real Balance = Invoiced Debt - Unused Credits
-  return studentBalance - creditBalance;
-};
+  useEffect(() => {
+    fetchPayrollData();
+  }, [fetchPayrollData]);
 
- 
-const getExcessPayment = () => {
-  const currentBalance = getCurrentBalance();
-  const payment = parseFloat(paymentAmount || 0);
-  
-  // Only show excess if student has debt (positive balance) AND payment is more than debt
-  if (currentBalance > 0 && payment > currentBalance) {
-    return payment - currentBalance;
-  }
-  return 0;
-};
+  // Calculate financial statistics
+  useEffect(() => {
+    if (employees.length === 0) return;
+    
+    const totalProcessed = payrollRecords.reduce((sum, record) => sum + (parseFloat(record.total_net) || 0), 0);
+    const currentMonthPayroll = employees.reduce((sum, emp) => sum + (parseFloat(emp.basic_salary) || 0), 0);
+    const taxLiabilities = payrollRecords.reduce((sum, record) => sum + (parseFloat(record.total_deductions) || 0), 0);
+    const pendingPayments = payrollRecords
+      .filter(r => r.status === 'pending' || r.status === 'approved')
+      .reduce((sum, record) => sum + (parseFloat(record.total_net) || 0), 0);
 
-// Add function to check if payment is valid
-const isValidPayment = () => {
-  const amount = parseFloat(paymentAmount || 0);
-  const currentBalance = getCurrentBalance();
-  
-  if (!amount || amount <= 0 || isNaN(amount)) {
-    return { valid: false, message: 'Please enter a valid amount' };
-  }
-  
-  // If student already has credit (negative balance), they can still pay
-  // This will increase their credit
-  if (currentBalance < 0) {
-    return { valid: true, message: 'Student has credit. Payment will increase credit balance.' };
-  }
-  
-  return { valid: true, message: '' };
-};
+    setFinancialStats({
+      totalProcessed: Math.round(totalProcessed),
+      currentMonthPayroll: Math.round(currentMonthPayroll),
+      taxLiabilities: Math.round(taxLiabilities * 0.6),
+      pendingPayments: Math.round(pendingPayments || currentMonthPayroll)
+    });
+  }, [payrollRecords, employees]);
 
-  // FIXED: Calculate new balance properly
-  const getNewBalance = () => {
-    const calculateNewBalance = getCurrentBalance() - paymentAmount;
-    return calculateNewBalance;
-  };
+  // Calculate payroll for an employee
+  const calculateEmployeePayroll = useCallback((employee) => {
+    if (!employee) return null;
 
-  const processPayment = async () => {
-    if (!selectedStudent) {
-      showNotification('error', 'Please select a student first');
-      return;
-    }
-
-    const validation = isValidPayment();
-    if (!validation.valid) {
-      showNotification('error', validation.message);
-      return;
-    }
-
-    // Validate payment method specific fields
-    if (paymentMethod === 'Mobile Money' && !mobileMoneyNo) {
-      showNotification('error', 'Please enter M-PESA number');
-      return;
-    }
-
-    if (paymentMethod === 'Bank Transfer' && !bankName) {
-      showNotification('error', 'Please enter bank name');
-      return;
-    }
-
-    if (paymentMethod === 'Cheque' && !chequeNo) {
-      showNotification('error', 'Please enter cheque number');
-      return;
-    }
-
-    // Show warning if paying more than outstanding balance
-    const currentBalance = getCurrentBalance();
-    const excess = getExcessPayment();
-    if (excess > 0) {
-      if (!window.confirm(`Student has outstanding balance of ${formatCurrency(currentBalance)}.\n\nYou are paying ${formatCurrency(paymentAmount)}, which is ${formatCurrency(excess)} more than the outstanding amount.\n\nThe excess will be recorded as credit.\n\nContinue?`)) {
-        return;
+    const basic = parseFloat(employee.basic_salary) || 0;
+    
+    // Calculate allowances/earnings from API data
+    const earningsList = payrollComponents.filter(c => 
+      c.component_type === 'Earning' || c.component_type === 'Allowance'
+    );
+    const totalEarnings = earningsList.reduce((sum, c) => sum + (parseFloat(c.fixed_amount) || 0), 0);
+    
+    // Calculate deductions from API data
+    const deductionsList = payrollComponents.filter(c => c.component_type === 'Deduction');
+    const totalDeductions = deductionsList.reduce((sum, d) => {
+      if (d.calculation_type === "Percentage of Basic") {
+        return sum + (basic * (parseFloat(d.percentage_rate) || 0) / 100);
       }
+      return sum + (parseFloat(d.fixed_amount) || 0);
+    }, 0);
+
+    // Adjustments
+    const overtimePay = (parseFloat(employeeAdjustments.overtime) || 0) * (basic / 160);
+    const absentDeduction = (parseFloat(employeeAdjustments.absentDays) || 0) * (basic / 22);
+    const bonusAmount = parseFloat(employeeAdjustments.bonus) || 0;
+
+    const grossSalary = basic + totalEarnings + overtimePay + bonusAmount;
+    const netSalary = grossSalary - totalDeductions - absentDeduction;
+
+    return {
+      employee: employee.full_name || employee.name || 'Unknown',
+      employee_id: employee.id,
+      basic_salary: Math.round(basic),
+      allowances: Math.round(totalEarnings),
+      overtime: Math.round(overtimePay),
+      bonus: Math.round(bonusAmount),
+      deductions: Math.round(totalDeductions),
+      absent_deduction: Math.round(absentDeduction),
+      gross_salary: Math.round(grossSalary),
+      net_salary: Math.round(netSalary),
+      bank_details: `${employee.bank_name || employee.bankName || 'N/A'} - ${employee.bank_account || employee.bankAccount || 'N/A'}`
+    };
+  }, [payrollComponents, employeeAdjustments]);
+
+  // Process payroll for selected employees
+  const processPayroll = useCallback(async () => {
+  if (currentPayroll.selectedEmployees.length === 0) {
+    showToast('Please select at least one employee', 'warning');
+    return;
+  }
+
+  try {
+    setLoading(true);
+    
+    const payrollMonth = currentPayroll.month;
+    const [year, month] = payrollMonth.split('-');
+    
+    const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
+    const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+    
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthName = monthNames[parseInt(month) - 1];
+    const periodCode = `PAY-${year}-${month.padStart(2, '0')}`;
+    const periodName = `${monthName} ${year} Payroll`;
+    
+    // Calculate payroll for each selected employee
+    const processedEmployees = currentPayroll.selectedEmployees.map(empId => {
+      const employee = employees.find(e => e.id === empId);
+      return calculateEmployeePayroll(employee);
+    }).filter(Boolean);
+
+    if (processedEmployees.length === 0) {
+      showToast('No valid employees to process', 'error');
+      return;
     }
 
-    setShowConfirmation(true);
-  };
+    const totalGross = processedEmployees.reduce((sum, emp) => sum + (emp.gross_salary || 0), 0);
+    const totalDeductions = processedEmployees.reduce((sum, emp) => sum + (emp.deductions || 0), 0);
+    const totalNet = processedEmployees.reduce((sum, emp) => sum + (emp.net_salary || 0), 0);
 
-  const confirmPayment = async () => {
-  setLoading(true);
-  try {
-    // 1. Identify the invoice to pay against
-    // If you have multiple invoices, you can pick the first unpaid one
-    const targetInvoice = invoices.find(inv => inv.payment_status !== 'Fully Paid') || invoices[0];
-
-    const transactionData = {
-      student: selectedStudent.id,
-      invoice: targetInvoice ? targetInvoice.id : null, // Link to the generated invoice
-      amount: parseFloat(paymentAmount), // Matches 'amount' in your serializer
-      payment_mode: paymentMethod, // Match models.py choices
-      payment_reference: paymentReference || `PAY-${Date.now()}`,
-      bank_name: bankName,
-      cheque_no: chequeNo,
-      mobile_money_no: mobileMoneyNo,
-      status: 'Completed', // Standard status for Bursar collection
-      payment_date: new Date().toISOString(),
-      collected_by: 1 // Link to the active user ID
+    // STEP 1: Create the Payroll Period
+    const payrollData = {
+      period_code: periodCode,
+      period_name: periodName,
+      start_date: startDate,
+      end_date: endDate,
+      pay_date: endDate,
+      status: 'Processing',
+      total_staff: processedEmployees.length,
+      processed_staff: processedEmployees.length,
+      total_gross: Math.round(totalGross),
+      total_deductions: Math.round(totalDeductions),
+      total_net: Math.round(totalNet),
+      total_paye: Math.round(totalDeductions * 0.3),
+      total_nssf: 0,
+      total_nhif: 0
     };
 
-    const response = await axios.post(`${API_BASE_URL}/api/fees/transactions/`, transactionData, getAuthHeaders());
+    console.log('Creating payroll period:', payrollData);
+
+    const response = await payroll.createPeriod(payrollData);
+    const newPeriod = response.data.data || response.data;
     
-    if (response.data.success || response.status === 201) {
-      setCurrentTransaction(response.data.data);
+    // STEP 2: Create individual Payroll Records for each employee
+    // The API should have an endpoint like /api/payroll-records/
+    // If not, you'll need to create one or use the period's update endpoint
+    const recordPromises = processedEmployees.map(async (emp) => {
+      const recordData = {
+        payroll_period: newPeriod.id,
+        staff: emp.employee_id,
+        basic_salary: emp.basic_salary,
+        allowances_total: emp.allowances,
+        overtime_total: emp.overtime,
+        bonus_total: emp.bonus,
+        other_earnings: 0,
+        gross_salary: emp.gross_salary,
+        paye_tax: Math.round(emp.gross_salary * 0.3),
+        nssf_deduction: 0,
+        nhif_deduction: 0,
+        pension_deduction: 0,
+        loan_deductions: 0,
+        other_deductions: emp.deductions,
+        total_deductions: emp.deductions,
+        net_salary: emp.net_salary,
+        payment_status: 'Pending',
+        days_worked: 22 - (emp.absent_deduction || 0),
+        days_absent: emp.absent_deduction || 0,
+        overtime_hours: emp.overtime || 0,
+        is_calculated: true,
+        // Store adjustments in JSON fields
+        allowances_breakdown: [],
+        deductions_breakdown: [
+          { name: 'Standard Deductions', amount: emp.deductions }
+        ]
+      };
 
-      const paidAmount = parseFloat(paymentAmount);
-      setStudentBalance(prev => prev - paidAmount);
-      setShowConfirmation(false);
-      setShowReceipt(true);
+      console.log('Creating payroll record for employee:', recordData);
+      
+      // Assuming there's a payroll-records endpoint
+      try {
+        const recordResponse = await payroll.createRecord(recordData);
+        return recordResponse.data.data || recordResponse.data;
+      } catch (recordError) {
+        console.error('Error creating payroll record:', recordError);
+        return null;
+      }
+    });
 
-      setTimeout(() => {
-        selectStudent(selectedStudent); 
-        fetchRecentTransactions();
-      }, 1000);
-      
-      // 2. Refresh the student profile to show the NEW REDUCED balance
-      await selectStudent(selectedStudent); 
-      fetchRecentTransactions();
-      
-      showNotification('success', 'Payment processed and invoice updated!');
+    // Wait for all records to be created
+    const createdRecords = await Promise.all(recordPromises);
+    const successfulRecords = createdRecords.filter(r => r !== null);
+
+    // Update the period with the actual records count
+    if (successfulRecords.length > 0) {
+      const updateData = {
+        ...payrollData,
+        processed_staff: successfulRecords.length
+      };
+      await payroll.updatePeriod(newPeriod.id, updateData);
     }
+    
+    // Fetch the updated period with records
+    const updatedResponse = await payroll.getPeriodById(newPeriod.id);
+    const finalRecord = updatedResponse.data.data || updatedResponse.data;
+    
+    // Add to records
+    setPayrollRecords([finalRecord, ...payrollRecords]);
+    
+    setCurrentPayroll({
+      month: new Date().toISOString().slice(0, 7),
+      selectedEmployees: [],
+      status: "Draft"
+    });
+    setSelectedEmployee(null);
+    setEmployeeAdjustments({
+      overtime: 0,
+      bonus: 0,
+      absentDays: 0,
+      notes: ""
+    });
+
+    showToast(`Payroll processed for ${successfulRecords.length} employees`, 'success');
+    
   } catch (error) {
-    console.error('Payment Processing Error:', error.response?.data);
-    showNotification('error', error.response?.data?.message || 'Transaction failed');
+    console.error("Process Payroll Error:", error);
+    
+    const errorData = error.response?.data;
+    let errorMsg = 'Failed to process payroll. Please try again.';
+    
+    if (errorData) {
+      const errorMessages = Object.entries(errorData)
+        .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+        .join('; ');
+      errorMsg = errorMessages || errorMsg;
+    }
+    
+    showToast(errorMsg, 'error');
   } finally {
     setLoading(false);
-   }
-  };
-  const resetForm = () => {
-    setSelectedStudent(null);
-    setStudentBalance(null);
-    setPaymentAmount('');
-    setPaymentReference('');
-    setMobileMoneyNo('');
-    setBankName('');
-    setChequeNo('');
-    setStudents([]);
-    setInvoices([]);
-    setShowClassStudents(false);
-    setSearchQuery('');
-    setSelectedClass('');
-  };
+  }
+}, [currentPayroll, employees, calculateEmployeePayroll, payrollRecords, showToast]);
 
-  const formatCurrency = (amount) => {
-    // Convert to number first
-    const num = Number(amount);
-    // Check if it's a valid number
-    if (isNaN(num)) {
-      return 'KSh 0.00';
-    }
-    
-    // Handle negative numbers
-    if (num < 0) {
-      return `-KSh ${Math.abs(num).toLocaleString('en-KE', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      })}`;
-    }
-    
-    // Handle positive numbers
-    return `KSh ${num.toLocaleString('en-KE', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    })}`;
-  };
+  // Toggle employee selection
+  const toggleEmployeeSelection = useCallback((employeeId) => {
+    setCurrentPayroll(prev => {
+      const isSelected = prev.selectedEmployees.includes(employeeId);
+      return {
+        ...prev,
+        selectedEmployees: isSelected
+          ? prev.selectedEmployees.filter(id => id !== employeeId)
+          : [...prev.selectedEmployees, employeeId]
+      };
+    });
+  }, []);
 
-  // FIXED: Professional print function
-  const printReceipt =  async () => {
-    if (!currentTransaction?.id) {
-    showNotification('error', 'No active transaction to print');
-    return;
-    }
+  // Mark payroll as paid
+  const markAsPaid = useCallback(async (recordId) => {
     try {
-    // Notify the backend that the receipt is being printed
-    await axios.patch(
-      `${API_BASE_URL}/api/fees/transactions/${currentTransaction.id}/mark_as_printed/`, 
-      {}, 
-      getAuthHeaders()
+      setLoading(true);
+      await payroll.updatePeriod(recordId, {
+        status: "paid",
+        pay_date: new Date().toISOString().split('T')[0]
+      });
+      
+      setPayrollRecords(records =>
+        records.map(record =>
+          record.id === recordId
+            ? { ...record, status: "paid", pay_date: new Date().toISOString().split('T')[0] }
+            : record
+        )
+      );
+      showToast('Payroll marked as paid', 'success');
+    } catch (error) {
+      console.error("Mark as Paid Error:", error);
+      showToast('Failed to mark as paid', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+
+  // Cancel payroll
+  const cancelPayroll = useCallback(async (recordId) => {
+    if (!window.confirm('Are you sure you want to cancel this payroll?')) return;
+    
+    try {
+      setLoading(true);
+      await payroll.updatePeriod(recordId, { status: "cancelled" });
+      
+      setPayrollRecords(records =>
+        records.map(record =>
+          record.id === recordId ? { ...record, status: "cancelled" } : record
+        )
+      );
+      showToast('Payroll cancelled successfully', 'success');
+    } catch (error) {
+      console.error("Cancel Payroll Error:", error);
+      showToast('Failed to cancel payroll', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+
+  // Export payroll report
+  const exportPayrollReport = useCallback(() => {
+    if (currentPayroll.selectedEmployees.length === 0) {
+      showToast('No employees selected to export', 'warning');
+      return;
+    }
+
+    const report = {
+      payroll_period: currentPayroll.month,
+      generated_date: new Date().toISOString(),
+      employees: employees.filter(emp => currentPayroll.selectedEmployees.includes(emp.id)),
+      components: payrollComponents,
+      records: payrollRecords.filter(r => r.period === currentPayroll.month)
+    };
+    
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `payroll_report_${currentPayroll.month}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    showToast('Payroll report exported successfully', 'success');
+  }, [currentPayroll, employees, payrollComponents, payrollRecords, showToast]);
+
+  // Generate payslip
+  const generatePayslip = useCallback((employeeId) => {
+    const employee = employees.find(e => e.id === employeeId);
+    if (!employee) {
+      showToast('Employee not found', 'error');
+      return;
+    }
+    
+    const payrollData = calculateEmployeePayroll(employee);
+    if (!payrollData) {
+      showToast('Could not calculate payroll for this employee', 'error');
+      return;
+    }
+    
+    const payslip = {
+      company: "ElimuHub School",
+      employee: payrollData.employee,
+      period: currentPayroll.month,
+      basic_salary: payrollData.basic_salary,
+      allowances: payrollData.allowances,
+      overtime: payrollData.overtime,
+      bonus: payrollData.bonus,
+      deductions: payrollData.deductions,
+      absent_deduction: payrollData.absent_deduction,
+      net_salary: payrollData.net_salary,
+      bank_details: payrollData.bank_details,
+      generated_date: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(payslip, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `payslip_${employee.full_name || employee.name}_${currentPayroll.month}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    showToast(`Payslip generated for ${employee.full_name || employee.name}`, 'success');
+  }, [employees, calculateEmployeePayroll, currentPayroll.month, showToast]);
+
+  // Calculate totals for selected employees
+  const calculateSelectedTotals = useCallback(() => {
+    const selected = employees.filter(emp => currentPayroll.selectedEmployees.includes(emp.id));
+    const totalBasic = selected.reduce((sum, emp) => sum + (parseFloat(emp.basic_salary) || 0), 0);
+    
+    const earningsComponents = payrollComponents.filter(c => 
+      c.component_type === 'Earning' || c.component_type === 'Allowance'
     );
-    fetchRecentTransactions();
-  } catch (error) {
-    console.error('Audit Log Error:', error);
+    const totalAllowances = earningsComponents.reduce((sum, c) => sum + (parseFloat(c.fixed_amount) || 0), 0) * Math.max(selected.length, 1);
+    
+    const deductionsComponents = payrollComponents.filter(c => c.component_type === 'Deduction');
+    const totalDeductions = selected.reduce((sum, emp) => {
+      const basic = parseFloat(emp.basic_salary) || 0;
+      return sum + deductionsComponents.reduce((dedSum, d) => {
+        if (d.calculation_type === "Percentage of Basic") {
+          return dedSum + (basic * (parseFloat(d.percentage_rate) || 0) / 100);
+        }
+        return dedSum + (parseFloat(d.fixed_amount) || 0);
+      }, 0);
+    }, 0);
+
+    return {
+      totalBasic: Math.round(totalBasic),
+      totalAllowances: Math.round(totalAllowances),
+      totalDeductions: Math.round(totalDeductions),
+      estimatedNet: Math.round(totalBasic + totalAllowances - totalDeductions),
+      employeeCount: selected.length
+    };
+  }, [employees, currentPayroll.selectedEmployees, payrollComponents]);
+
+  const selectedTotals = calculateSelectedTotals();
+
+  // Get status badge
+  const getStatusBadge = (status) => {
+    const styles = {
+      paid: "bg-green-100 text-green-800",
+      approved: "bg-blue-100 text-blue-800",
+      pending: "bg-amber-100 text-amber-800",
+      cancelled: "bg-red-100 text-red-800"
+    };
+    return styles[status] || "bg-gray-100 text-gray-800";
+  };
+
+  // Get status icon
+  const getStatusIcon = (status) => {
+    const icons = {
+      paid: <FiCheckCircle className="mr-1" />,
+      approved: <FiCheckCircle className="mr-1 text-blue-600" />,
+      pending: <FiClock className="mr-1" />,
+      cancelled: <FiAlertCircle className="mr-1" />
+    };
+    return icons[status] || <FiClock className="mr-1" />;
+  };
+
+  if (!employees.length && !loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
+          <FiUser className="mx-auto text-gray-400 text-5xl mb-4" />
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">No Employees Found</h2>
+          <p className="text-gray-600 mb-4">Please add staff members before processing payroll.</p>
+          <button 
+            onClick={fetchPayrollData}
+            className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <FiRefreshCw className="inline mr-2" />
+            Refresh
+          </button>
+        </div>
+      </div>
+    );
   }
-  // Get current date for academic year
-  const currentDate = new Date();
-  const currentYear = currentDate.getFullYear();
-  
-  // Get data from the first invoice (if available)
-  const firstInvoice = invoices && invoices.length > 0 ? invoices[0] : null;
-  
-  // Use academic year from invoice, or fallback to current year
-  const academicYear = firstInvoice?.academic_year || `${currentYear}`;
-  
-  // Use term from invoice, or fallback to current class
-  const term = firstInvoice?.term || currentClass;
-  // Format term for display (convert "TERM_3" to "Term 3")
-  const formattedTerm = term.replace('TERM_', 'Term ');
-  
-  const printWindow = window.open('', '_blank', 'width=800,height=600');
-  
-  if (!printWindow) {
-    showNotification('error', 'Please allow popups to print receipt');
-    return;
-  }
-  
-  const currentBalance = getCurrentBalance();
-  const newBalance = getNewBalance();
-  const amountPaid = parseFloat(paymentAmount || currentTransaction?.amount_kes || 0);
-  
-  // Get invoice balance (sum of all invoice balances)
-  const invoiceTotalBalance = invoices && invoices.length > 0 
-    ? invoices.reduce((sum, invoice) => sum + parseFloat(invoice.balance_amount || 0), 0)
-    : currentBalance;
-  
-  // Use invoice balance as the previous balance
-  const previousBalance = invoiceTotalBalance;
-  
-  // FIXED: Show proper balance description based on invoice balance
-  const balanceDescription = previousBalance < 0 ? 'Credit Balance' : 'Outstanding Balance';
-  const newBalanceDescription = newBalance < 0 ? 'Credit Balance' : 'Outstanding Balance';
-  
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Payment Receipt - ${selectedStudent?.admission_no}</title>
-      <meta charset="UTF-8">
-      <style>
-        @media print {
-          @page {
-            margin: 0;
-            size: auto;
-          }
-          body {
-            margin: 0;
-            padding: 10px;
-          }
-        }
-        
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-        
-        body {
-          font-family: 'Arial', sans-serif;
-          font-size: 12px;
-          line-height: 1.4;
-          color: #000;
-          padding: 10px;
-          max-width: 800px;
-          margin: 0 auto;
-        }
-        
-        .receipt {
-          border: 2px solid #b91c1c;
-          padding: 15px;
-          margin: 0 auto;
-        }
-        
-        .header {
-          text-align: center;
-          margin-bottom: 15px;
-          border-bottom: 2px solid #b91c1c;
-          padding-bottom: 10px;
-        }
-        
-        .logo-container {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          margin-bottom: 10px;
-          height: 70px; /* Reduced height for better fit */
-        }
-        
-        .school-logo {
-          max-height: 60px;
-          max-width: 200px;
-          object-fit: contain;
-        }
-        
-        .school-name {
-          font-size: 22px;
-          font-weight: bold;
-          color: #b91c1c;
-          margin-bottom: 5px;
-        }
-        
-        .receipt-title {
-          font-size: 18px;
-          font-weight: bold;
-          margin: 10px 0;
-        }
-        
-        .receipt-no {
-          font-size: 14px;
-          font-weight: bold;
-          margin-bottom: 5px;
-        }
-        
-        .academic-year {
-          font-size: 14px;
-          font-weight: bold;
-          margin: 5px 0;
-        }
-        
-        .section {
-          margin: 10px 0;
-        }
-        
-        .section-title {
-          font-weight: bold;
-          font-size: 14px;
-          color: #1e40af;
-          margin-bottom: 5px;
-          padding-bottom: 3px;
-          border-bottom: 1px solid #ccc;
-        }
-        
-        .info-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
-          margin: 10px 0;
-        }
-        
-        .info-row {
-          margin: 5px 0;
-        }
-        
-        .info-label {
-          font-weight: bold;
-          color: #555;
-        }
-        
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 10px 0;
-        }
-        
-        th, td {
-          border: 1px solid #000;
-          padding: 8px;
-          text-align: left;
-        }
-        
-        th {
-          background-color: #f3f4f6;
-          font-weight: bold;
-        }
-        
-        .total-row {
-          font-weight: bold;
-          background-color: #f0f9ff;
-        }
-        
-        .balance-row {
-          font-weight: bold;
-        }
-        
-        .amount {
-          text-align: right;
-        }
-        
-        .negative {
-          color: #059669; /* Green for credit */
-        }
-        
-        .positive {
-          color: #dc2626; /* Red for debt */
-        }
-        
-        .signature-section {
-          margin-top: 30px;
-          padding-top: 20px;
-          border-top: 1px solid #ccc;
-          display: flex;
-          justify-content: space-between;
-        }
-        
-        .signature-box {
-          text-align: center;
-          width: 45%;
-        }
-        
-        .signature-line {
-          border-top: 1px solid #000;
-          margin: 40px 0 5px 0;
-          width: 100%;
-        }
-        
-        .signature-label {
-          font-weight: bold;
-          margin-top: 5px;
-        }
-        
-        .signature-title {
-          font-size: 11px;
-          color: #666;
-        }
-        
-        .footer {
-          text-align: center;
-          margin-top: 20px;
-          padding-top: 10px;
-          border-top: 1px solid #ccc;
-          font-size: 11px;
-          color: #666;
-        }
-        
-        .calculation-note {
-          font-size: 10px;
-          color: #666;
-          margin-top: 5px;
-          font-style: italic;
-        }
-        
-        .invoice-status-paid {
-          background-color: #d1fae5;
-          color: #065f46;
-          padding: 2px 6px;
-          border-radius: 12px;
-          font-size: 10px;
-        }
-        
-        .invoice-status-partial {
-          background-color: #fef3c7;
-          color: #92400e;
-          padding: 2px 6px;
-          border-radius: 12px;
-          font-size: 10px;
-        }
-        
-        .invoice-status-pending {
-          background-color: #fee2e2;
-          color: #991b1b;
-          padding: 2px 6px;
-          border-radius: 12px;
-          font-size: 10px;
-        }
-        
-        @media print {
-          body {
-            padding: 0;
-          }
-          .receipt {
-            border: none;
-          }
-          .logo-container {
-            height: 60px !important;
-          }
-          .school-logo {
-            max-height: 50px !important;
-            max-width: 180px !important;
-          }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="receipt">
-        <div class="header">
-          <div class="logo-container">
-            <img 
-              src="/logo.jpeg"
-              alt="ElimuHub logo" 
-              class="school-logo"
-            />
-          </div>
-          <div class="school-name">ELIMUHUB</div>
-          <div>In God We Trust</div>
-          <div class="receipt-title">OFFICIAL FEE PAYMENT RECEIPT</div>
-          <div class="receipt-no">Receipt No: ${currentTransaction?.transaction_no || 'TEMP-' + Date.now()}</div>
-          <div class="academic-year">Academic Year: ${academicYear} | Term: ${formattedTerm}</div>
-          <div>Date: ${new Date().toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-          })} | Time: ${new Date().toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          })}</div>
-        </div>
-
-        
-        <div class="section">
-          <div class="section-title">Student Information</div>
-          <div class="info-grid">
-            <div class="info-row">
-              <span class="info-label">Student Name:</span>
-              <span>${selectedStudent?.first_name} ${selectedStudent?.last_name}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Admission No:</span>
-              <span>${selectedStudent?.admission_no}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Class:</span>
-              <span>${currentClass}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Term:</span>
-              <span>${formattedTerm}</span>
-            </div>
-          </div>
-        </div>
-        
-        <div class="section">
-          <div class="section-title">Payment Details</div>
-          <table>
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th>Payment Method</th>
-                <th>Reference</th>
-                <th>Amount (KSh)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>School Fee Payment</td>
-                <td>${currentTransaction?.payment_mode || paymentMethod}</td>
-                <td>${currentTransaction?.payment_reference || paymentReference || 'N/A'}</td>
-                <td class="amount">${amountPaid.toLocaleString('en-KE', {minimumFractionDigits: 2})}</td>
-              </tr>
-              <tr class="total-row">
-                <td colspan="3"><strong>TOTAL AMOUNT PAID</strong></td>
-                <td class="amount"><strong>${amountPaid.toLocaleString('en-KE', {minimumFractionDigits: 2})}</strong></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        
-        ${invoices && invoices.length > 0 ? `
-        <div class="section">
-          <div class="section-title">Invoice Details</div>
-          <table>
-            <thead>
-              <tr>
-                <th>Invoice No</th>
-                <th>Date</th>
-                <th>Due Date</th>
-                <th>Total Amount</th>
-                <th>Total Paid</th>
-                <th>Outstanding Balance</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${invoices.map((invoice, index) => {
-                const invoiceDate = invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString() : 'N/A';
-                const dueDate = invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : 'N/A';
-                const totalAmount = invoice.total_amount ? parseFloat(invoice.total_amount).toLocaleString('en-KE', {minimumFractionDigits: 2}) : '0.00';
-                const amountPaidInvoice = invoice.amount_paid ? parseFloat(invoice.amount_paid).toLocaleString('en-KE', {minimumFractionDigits: 2}) : '0.00';
-                const balanceAmount = invoice.balance_amount ? parseFloat(invoice.balance_amount) : 0;
-                const balanceFormatted = balanceAmount.toLocaleString('en-KE', {minimumFractionDigits: 2});
-                const balanceClass = balanceAmount < 0 ? 'negative' : balanceAmount > 0 ? 'positive' : '';
-                const status = invoice.payment_status || invoice.status || 'PENDING';
-                const statusClass = status === 'PAID' ? 'invoice-status-paid' : 
-                                   status === 'PARTIAL' ? 'invoice-status-partial' : 
-                                   'invoice-status-pending';
-                
-                return `
-                  <tr>
-                    <td>${invoice.invoice_no || 'N/A'}</td>
-                    <td>${invoiceDate}</td>
-                    <td>${dueDate}</td>
-                    <td class="amount">KSh ${totalAmount}</td>
-                    <td class="amount">KSh ${amountPaidInvoice}</td>
-                    <td class="amount ${balanceClass}">${balanceAmount < 0 ? '-' : ''}KSh ${Math.abs(balanceAmount).toLocaleString('en-KE', {minimumFractionDigits: 2})}</td>
-                    <td><span class="${statusClass}">${status}</span></td>
-                  </tr>
-                `;
-              }).join('')}
-              ${invoices.length > 1 ? `
-              <tr class="total-row">
-                <td colspan="5"><strong>TOTAL INVOICE BALANCE:</strong></td>
-                <td class="amount ${previousBalance < 0 ? 'negative' : previousBalance > 0 ? 'positive' : ''}">
-                  <strong>${previousBalance < 0 ? '-' : ''}KSh ${Math.abs(previousBalance).toLocaleString('en-KE', {minimumFractionDigits: 2})}</strong>
-                </td>
-                <td></td>
-              </tr>
-              ` : ''}
-            </tbody>
-          </table>
-        </div>
-        ` : ''}
-        
-        <div class="section">
-          <div class="section-title">Balance Calculation</div>
-          <table>
-            <tbody>
-              <tr>
-                <td><strong>Previous ${balanceDescription}:</strong></td>
-                <td class="amount ${previousBalance < 0 ? 'negative' : previousBalance > 0 ? 'positive' : ''}">
-                  ${previousBalance < 0 ? '-' : ''}KSh ${Math.abs(previousBalance).toLocaleString('en-KE', {minimumFractionDigits: 2})}
-                </td>
-              </tr>
-              <tr>
-                <td><strong>Amount Paid:</strong></td>
-                <td class="amount positive">
-                   KSh ${amountPaid.toLocaleString('en-KE', {minimumFractionDigits: 2})}
-                </td>
-              </tr>
-              <tr class="balance-row">
-                <td><strong>NEW ${newBalanceDescription}:</strong></td>
-                <td class="amount ${newBalance < 0 ? 'negative' : newBalance > 0 ? 'positive' : ''}">
-                  <strong>${newBalance < 0 ? '-' : ''}KSh ${Math.abs(netCredit).toLocaleString('en-KE', {minimumFractionDigits: 2})}</strong>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          
-          ${newBalance < 0 ? `
-          <div class="calculation-note" style="color: #059669; font-weight: bold;">
-            Note: Negative balance indicates credit of ${formatCurrency(Math.abs(netCredit))}
-          </div>
-          ` : ''}
-        </div>
-        
-        
-        <div class="footer">
-          <div>*** This is an official computer-generated receipt ***</div>
-          <div>Thank you for your payment. Please keep this receipt for your records.</div>
-          <div>For any queries, contact: Bursar Department</div>
-          <div> © ${new Date().getFullYear()} ELIMUHUB </div>
-        </div>
-      </div>
-      
-      
-      <script>
-        // Auto-print after page loads
-        window.onload = function() {
-          setTimeout(function() {
-            window.print();
-          }, 500);
-        };
-      </script>
-    </body>
-    </html>
-  `);
-  
-  printWindow.document.close();
-};
-
-
-  // Render notification
-  const renderNotification = () => (
-    notification.show && (
-      <div className={`fixed top-4 right-4 z-50 max-w-sm w-full ${
-        notification.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
-        notification.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
-        'bg-blue-50 border-blue-200 text-blue-800'
-      } border rounded-lg shadow-lg p-4`}>
-        <div className="flex items-start">
-          <div className="flex-shrink-0">
-            {notification.type === 'error' ? <AlertCircle className="w-5 h-5" /> :
-             notification.type === 'success' ? <Check className="w-5 h-5" /> :
-             <div className="w-5 h-5">ℹ️</div>}
-          </div>
-          <div className="ml-3 flex-1">
-            <p className="text-sm font-medium">
-              {notification.message}
-            </p>
-          </div>
-          <button
-            onClick={() => setNotification({ show: false, type: '', message: '' })}
-            className="ml-4 text-gray-400 hover:text-gray-600"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-    )
-  );
-
-  // Render class students modal
-  const renderClassStudentsModal = () => (
-    showClassStudents && classStudents.length > 0 && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-lg w-full max-w-6xl max-h-[80vh] overflow-hidden">
-          <div className="bg-blue-600 text-white p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-bold">Select Student from Class</h3>
-                <p className="text-blue-100">
-                  {classStudents.length} students found in selected class
-                </p>
-              </div>
-              <button
-                onClick={() => setShowClassStudents(false)}
-                className="p-2 hover:bg-blue-700 rounded"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-          </div>
-          
-          <div className="p-4 max-h-[60vh] overflow-y-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {classStudents.map((student) => (
-                <div
-                  key={student.id}
-                  onClick={() => selectStudent(student)}
-                  className="border border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-colors"
-                >
-                  <div className="flex items-start">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                      <User className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-bold text-gray-900">
-                        {student.first_name} {student.last_name}
-                      </div>
-                      <div className="text-sm text-gray-600 mb-2">{student.admission_no}</div>
-                      <div className="text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Class:</span>
-                          <span className="font-medium">{student.class_name}</span>
-                        </div>
-                        <div className="flex justify-between mt-1">
-                          <span className="text-gray-600">Balance:</span>
-                          <span className={`font-bold ${
-                            (student.outstanding_balance || 0) < 0 ? 'text-green-600' :
-                            (student.outstanding_balance || 0) > 0 ? 'text-red-600' :
-                            'text-gray-600'
-                          }`}>
-                            {formatCurrency(student.outstanding_balance)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400 ml-2" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          
-          <div className="border-t border-gray-300 p-4">
-            <button
-              onClick={() => setShowClassStudents(false)}
-              className="w-full py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  );
-
-  // Render confirmation modal - UPDATED
-const renderConfirmationModal = () => (
-  showConfirmation && selectedStudent && (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg w-full max-w-md">
-        <div className="p-6">
-          <div className="text-center mb-6">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CreditCard className="w-6 h-6 text-blue-600" />
-            </div>
-            <h3 className="text-lg font-bold text-gray-900">Confirm Payment</h3>
-            <p className="text-gray-600 mt-1">Please review payment details</p>
-          </div>
-          
-          {/* Student Info */}
-          <div className="mb-6">
-            <div className="flex items-center mb-4">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                <User className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <div className="font-bold text-gray-900">
-                  {selectedStudent.first_name} {selectedStudent.last_name}
-                </div>
-                <div className="text-sm text-gray-600">{selectedStudent.admission_no}</div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Payment Details */}
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Class:</span>
-                <span className="font-medium">{selectedStudent.class_name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Payment Method:</span>
-                <span className="font-medium">{paymentMethod === 'Mobile Money' ? 'Mobile Money' : paymentMethod}</span>
-              </div>
-              {paymentReference && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Reference:</span>
-                  <span className="font-medium">{paymentReference}</span>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          {/* Balance Calculation - CORRECTED */}
-          <div className="bg-white border border-gray-300 rounded-lg p-4 mb-6">
-            <div className="text-center font-bold text-gray-900 mb-3">Balance Calculation</div>
-            
-            <div className="space-y-2">
-              {/* Current Balance */}
-              <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                <div>
-                  <div className="text-sm text-gray-600">Current Balance</div>
-                  <div className={`text-sm ${
-                    getCurrentBalance() < 0 ? 'text-green-600' :
-                    getCurrentBalance() > 0 ? 'text-red-600' :
-                    'text-gray-600'
-                  }`}>
-                    {getCurrentBalance() < 0 ? 'Credit' : 'Outstanding'}
-                  </div>
-                </div>
-                <div className={`text-lg font-bold ${
-                  getCurrentBalance() < 0 ? 'text-green-600' :
-                  getCurrentBalance() > 0 ? 'text-red-600' :
-                  'text-gray-600'
-                }`}>
-                  {formatCurrency(getCurrentBalance())}
-                </div>
-              </div>
-              
-              {/* Minus Payment */}
-              <div className="flex justify-between items-center p-2">
-                <div>
-                  <div className="text-sm text-gray-600">Payment Amount</div>
-                  <div className="text-sm text-blue-600">Minus</div>
-                </div>
-                <div className="text-lg font-bold text-blue-600">
-                  - {formatCurrency(paymentAmount)}
-                </div>
-              </div>
-              
-              {/* Divider */}
-              <div className="border-t border-gray-300 my-2"></div>
-              
-              {/* New Balance */}
-              <div className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-300">
-                <div>
-                  <div className="font-bold text-gray-900">New Balance</div>
-                  <div className={`text-sm ${
-                    getNewBalance() < 0 ? 'text-green-600' :
-                    getNewBalance() > 0 ? 'text-red-600' :
-                    'text-gray-600'
-                  }`}>
-                    {getNewBalance() < 0 ? 'Credit Balance' :
-                     getNewBalance() > 0 ? 'Outstanding Balance' : 'Paid in Full'}
-                  </div>
-                </div>
-                <div className={`text-2xl font-bold ${
-                  getNewBalance() < 0 ? 'text-green-600' :
-                  getNewBalance() > 0 ? 'text-red-600' :
-                  'text-gray-600'
-                }`}>
-                  {formatCurrency(getNewBalance())}
-                </div>
-              </div>
-              
-              {/* Calculation Formula */}
-              {/* <div className="text-center text-sm text-gray-500 mt-3 p-2 bg-blue-50 rounded">
-                <div className="font-medium">Calculation:</div>
-                <div className="font-mono">
-                  {formatCurrency(getCurrentBalance())} - {formatCurrency(paymentAmount)} = {formatCurrency(getNewBalance())}
-                </div>
-              </div> */}
-              
-              {/* Excess Payment Warning */}
-              {getExcessPayment() > 0 && (
-                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg mt-3">
-                  <div className="flex items-start">
-                    <AlertCircle className="w-5 h-5 text-yellow-600 mr-2 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <div className="text-sm font-medium text-yellow-800">Excess Payment</div>
-                      <div className="text-sm text-yellow-700">
-                        Student will receive {formatCurrency(getExcessPayment())} credit
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          {/* Action Buttons */}
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowConfirmation(false)}
-              className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={confirmPayment}
-              disabled={loading}
-              className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center">
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Processing...
-                </span>
-              ) : (
-                'Confirm Payment'
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-);
-
-  // Render receipt modal
-  const renderReceiptModal = () => (
-    showReceipt && currentTransaction && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-lg w-full max-w-2xl">
-          <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">Payment Receipt</h3>
-                <p className="text-gray-600">Payment completed successfully</p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={printReceipt}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center"
-                >
-                  <Printer className="w-4 h-4 mr-2" />
-                  Print Receipt
-                </button>
-                <button
-                  onClick={() => setShowReceipt(false)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-            
-            {/* Receipt Preview */}
-            <div className="border border-gray-300 rounded p-6 bg-gray-50">
-              <div className="text-center mb-6">
-                <div className="font-bold text-lg text-blue-600">ELIMUHUB</div>
-                <div className="text-sm text-gray-600">Official Fee Payment Receipt</div>
-                <div className="text-sm mt-2 font-medium">Receipt No: {currentTransaction.receipt.receipt_no}</div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-6 mb-6">
-                <div>
-                  <div className="text-sm font-medium text-gray-600">Student Name</div>
-                  <div className="font-bold">{selectedStudent.first_name} {selectedStudent.last_name}</div>
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-gray-600">Admission No</div>
-                  <div className="font-bold">{selectedStudent.admission_no}</div>
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-gray-600">Class</div>
-                  <div className="font-bold">{currentClass}</div>
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-gray-600">Date</div>
-                  <div className="font-bold">{new Date().toLocaleDateString()}</div>
-                </div>
-              </div>
-              
-              <div className="border-t border-gray-300 pt-6">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="font-medium">Payment Method:</span>
-                  <span>{currentTransaction.receipt.payment_details.payment_mode}</span>
-                </div>
-                <div className="flex justify-between items-center mb-3">
-                  <span className="font-medium">Reference:</span>
-                  <span>{currentTransaction.receipt.payment_details.payment_reference || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between items-center mb-3">
-                  <span className="font-medium">Amount Paid:</span>
-                  <span className="font-bold text-green-600">{formatCurrency(currentTransaction.transaction.amount_kes)}</span>
-                </div>
-                
-                {/* {studentBalance && (
-                  <>
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="font-medium">Previous Balance:</span>
-                      <span className={`${
-                        getCurrentBalance() < 0 ? 'text-green-600' :
-                        getCurrentBalance() > 0 ? 'text-red-600' :
-                        'text-gray-600'
-                      }`}>
-                        {formatCurrency(getCurrentBalance())}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center pt-3 border-t border-gray-300">
-                      <span className="font-bold">New Balance:</span>
-                      <span className={`font-bold text-lg ${
-                        getNewBalance() < 0 ? 'text-green-600' :
-                        getNewBalance() > 0 ? 'text-red-600' :
-                        'text-gray-600'
-                      }`}>
-                        {formatCurrency(getNewBalance())}
-                      </span>
-                    </div>
-                  </>
-                )} */}
-              </div>
-              
-              <div className="text-center text-sm text-gray-600 mt-8 pt-6 border-t border-gray-300">
-                <div>Thank you for your payment</div>
-                <div>Keep this receipt for your records</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  );
-
-  // Render invoices section
-  const renderInvoicesSection = () => (
-    invoices.length > 0 && (
-      <div className="bg-white rounded-lg border border-gray-300 p-6 mb-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Active Invoices</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Invoice No</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Date</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Due Date</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Total Amount</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Amount Paid</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Balance</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-300">
-              {invoices.map((invoice, index) => (
-                <tr key={index}>
-                  <td className="px-4 py-3 text-sm text-gray-900">{invoice.invoice_no}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {new Date(invoice.invoice_date).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {new Date(invoice.due_date).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-3 text-sm font-medium">
-                    {formatCurrency(invoice.total_amount)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-green-600">
-                    {formatCurrency(invoice.amount_paid)}
-                  </td>
-                  <td className="px-4 py-3 text-sm font-bold ${
-                    parseFloat(invoice.balance_amount || 0) < 0 ? 'text-green-600' :
-                    parseFloat(invoice.balance_amount || 0) > 0 ? 'text-red-600' :
-                    'text-gray-600'
-                  }">
-                    {formatCurrency(invoice.balance_amount)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      invoice.payment_status === 'PAID' ? 'bg-green-100 text-green-800' :
-                      invoice.payment_status === 'PARTIAL' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {invoice.payment_status || invoice.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    )
-  );
-
-  // Render search section
-  const renderSearchSection = () => (
-    <div className="bg-white rounded-lg border border-gray-300 p-6 mb-6">
-      <div className="mb-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-2">Find Student</h3>
-        <p className="text-gray-600">Search by admission number, name, or class</p>
-      </div>
-      
-      {/* Search Tabs */}
-      <div className="flex space-x-2 mb-6">
-        {['admission', 'name', 'class'].map((mode) => (
-          <button
-            key={mode}
-            onClick={() => {
-              setSearchMode(mode);
-              setStudents([]);
-              setShowClassStudents(false);
-              setSearchQuery('');
-            }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium ${
-              searchMode === mode
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {mode === 'admission' ? 'Admission No' :
-             mode === 'name' ? 'Student Name' : 'Class'}
-          </button>
-        ))}
-      </div>
-      
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {(searchMode === 'admission' || searchMode === 'name') && (
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {searchMode === 'admission' ? 'Admission Number *' : 'Student Name *'}
-              </label>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && searchStudents()}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder={searchMode === 'admission' ? 'Enter admission number' : 'Enter student name'}
-              />
-            </div>
-          )}
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {searchMode === 'class' ? 'Class *' : 'Class (Optional)'}
-            </label>
-            <select
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Select Class</option>
-              {classes.map((cls) => (
-                <option key={cls.id} value={cls.id}>
-                  {cls.class_name} ({cls.class_code})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        
-        <div className="flex gap-3">
-          <button
-            onClick={searchStudents}
-            disabled={loadingStudents}
-            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
-          >
-            {loadingStudents ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Searching...
-              </>
-            ) : (
-              <>
-                <Search className="w-4 h-4 mr-2" />
-                Search Student
-              </>
-            )}
-          </button>
-          
-          <button
-            onClick={resetForm}
-            className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-          >
-            Clear
-          </button>
-        </div>
-      </div>
-      
-      {/* Search Results (for admission/name search) */}
-      {students.length > 0 && searchMode !== 'class' && (
-        <div className="mt-6 border border-gray-300 rounded-lg overflow-hidden">
-          <div className="bg-gray-50 px-4 py-3 border-b border-gray-300">
-            <div className="font-medium text-gray-900">
-              Search Results ({students.length})
-            </div>
-          </div>
-          <div className="max-h-60 overflow-y-auto">
-            {students.map((student) => (
-              <div
-                key={student.id}
-                onClick={() => selectStudent(student)}
-                className="px-4 py-3 border-b border-gray-300 hover:bg-blue-50 cursor-pointer last:border-b-0"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium text-gray-900">
-                      {student.first_name} {student.last_name}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {student.admission_no} • {student.class_name}
-                    </div>
-                    <div className="text-xs text-blue-500 mt-1 font-bold ">
-                      Click to select
-                    </div>
-                  </div>
-                  {/* <div className="text-right">
-                    <div className="font-bold text-red-600">
-                      !!Notice ,if NEW REGISTRATION paying, kindly adjust the estimated invoice by paying 0.000001 at first then proceed to pay the actual student amount
-                    </div>
-                  </div> */}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  // Render payment form
-  const renderPaymentForm = () => (
-  selectedStudent && (
-    <>
-      <div className="bg-white rounded-lg border border-gray-300 p-6 mb-6">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h3 className="text-xl font-bold text-gray-900">Payment Details</h3>
-            <p className="text-gray-600">Enter payment information for selected student</p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-              {selectedStudent.admission_no}
-            </span>
-            <button
-              onClick={resetForm}
-              className="text-sm text-red-600 hover:text-red-800"
-            >
-              Change Student
-            </button>
-          </div>
-        </div>
-        
-        {/* Student Summary */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div>
-              <div className="text-sm text-gray-600 mb-1">Student Name</div>
-              <div className="font-bold text-gray-900 text-lg">
-                {selectedStudent.first_name} {selectedStudent.last_name}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-600 mb-1">Class</div>
-              <div className="font-bold text-gray-900 text-lg">{currentClass}</div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-600 mb-1">Current Balance</div>
-              <div className={`text-2xl font-bold ${
-                getCurrentBalance() < 0 ? 'text-green-600' :
-                getCurrentBalance() > 0 ? 'text-red-600' :
-                'text-gray-600'
-              }`}>
-                {formatCurrency(getCurrentBalance())}
-                {getCurrentBalance() < 0 && ' (Credit)'}
-                {getCurrentBalance() > 0 && ' (Outstanding)'}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-600 mb-1">Status</div>
-              <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                getCurrentBalance() < 0 ? 'bg-green-100 text-green-800' :
-                getCurrentBalance() > 0 ? 'bg-red-100 text-red-800' :
-                'bg-gray-100 text-gray-800'
-              }`}>
-                {getCurrentBalance() < 0 ? 'CREDIT' :
-                 getCurrentBalance() > 0 ? 'OUTSTANDING' : 'PAID'}
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Payment Form */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            {/* Amount Input with Calculations */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Amount (KSh) *
-              </label>
-              <input
-                type="number"
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
-                min="0.01"
-                step="0.01"
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="0.00"
-              />
-              
-              {/* Current Balance and Calculation Preview */}
-              {selectedStudent && (
-                <div className="mt-3 space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Current Balance:</span>
-                    <span className={`text-sm font-bold ${
-                      getCurrentBalance() < 0 ? 'text-green-600' :
-                      getCurrentBalance() > 0 ? 'text-red-600' :
-                      'text-gray-600'
-                    }`}>
-                      {formatCurrency(getCurrentBalance())}
-                      {getCurrentBalance() < 0 && ' (Credit)'}
-                    </span>
-                  </div>
-                  
-                  {/* Excess Payment Warning */}
-                  {getExcessPayment() > 0 && (
-                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <div className="flex items-start">
-                        <AlertCircle className="w-5 h-5 text-yellow-600 mr-2 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <div className="text-sm font-medium text-yellow-800">
-                            Excess Payment Detected
-                          </div>
-                          <div className="text-sm text-yellow-700 mt-1">
-                            You are paying {formatCurrency(getExcessPayment())} more than the outstanding balance.
-                            This will be recorded as credit.
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Calculation Preview */}
-                  {paymentAmount && parseFloat(paymentAmount) > 0 && (
-                    <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                      <div className="text-sm font-medium text-gray-700 mb-1">Calculation Preview:</div>
-                      <div className="text-sm text-gray-600 space-y-1">
-                        <div className="flex justify-between">
-                          <span>Current Balance:</span>
-                          <span>{formatCurrency(getCurrentBalance())}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Minus Payment:</span>
-                          <span className="text-blue-600">- {formatCurrency(paymentAmount)}</span>
-                        </div>
-                        <div className="flex justify-between pt-1 border-t border-gray-300">
-                          <span className="font-medium">New Balance:</span>
-                          <span className={`font-bold ${
-                            getNewBalance() < 0 ? 'text-green-600' :
-                            getNewBalance() > 0 ? 'text-red-600' :
-                            'text-gray-600'
-                          }`}>
-                            {formatCurrency(getNewBalance())}
-                            {getNewBalance() < 0 && ' (Credit)'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            
-            {/* Payment Method */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Payment Method *
-              </label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="Mobile Money">Mobile Money</option>
-                <option value="Cash">Cash</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-                <option value="Cheque">Cheque</option>
-              </select>
-            </div>
-            
-            {/* Payment Method Specific Fields */}
-            {paymentMethod === 'Mobile Money' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  M-PESA Number *
-                </label>
-                <input
-                  type="text"
-                  value={mobileMoneyNo}
-                  onChange={(e) => setMobileMoneyNo(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="07XX XXX XXX"
-                />
-              </div>
-            )}
-            
-            {paymentMethod === 'Bank Transfer' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Bank Name *
-                </label>
-                <input
-                  type="text"
-                  value={bankName}
-                  onChange={(e) => setBankName(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Bank name"
-                />
-              </div>
-            )}
-            
-            {paymentMethod === 'Cheque' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cheque Number *
-                </label>
-                <input
-                  type="text"
-                  value={chequeNo}
-                  onChange={(e) => setChequeNo(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Cheque number"
-                />
-              </div>
-            )}
-            
-            {/* Payment Reference */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Payment Reference (Optional)
-              </label>
-              <input
-                type="text"
-                value={paymentReference}
-                onChange={(e) => setPaymentReference(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Payment reference"
-              />
-            </div>
-          </div>
-          
-          {/* Payment Summary */}
-          <div className="space-y-6">
-            <div className="bg-gray-50 border border-gray-300 rounded-lg p-6">
-              <h4 className="font-bold text-gray-900 mb-4">Payment Summary</h4>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Student:</span>
-                  <span className="font-medium text-right">
-                    {selectedStudent.first_name}<br/>
-                    {selectedStudent.last_name}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Admission:</span>
-                  <span className="font-medium">{selectedStudent.admission_no}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Class:</span>
-                  <span className="font-medium">{currentClass}</span>
-                </div>
-                
-                <div className="pt-3 border-t border-gray-300">
-                  <div className="flex justify-between mb-2">
-                    <span className="text-gray-600">Current Balance:</span>
-                    <span className={`font-bold ${
-                      getCurrentBalance() < 0 ? 'text-green-600' :
-                      getCurrentBalance() > 0 ? 'text-red-600' :
-                      'text-gray-600'
-                    }`}>
-                      {formatCurrency(getCurrentBalance())}
-                    </span>
-                  </div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-gray-600">Payment Amount:</span>
-                    <span className="font-bold text-blue-600">{formatCurrency(paymentAmount)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Payment Method:</span>
-                    <span className="font-medium">{paymentMethod === 'Mobile Money' ? 'Mobile Money' : paymentMethod}</span>
-                  </div>
-                </div>
-                
-                <div className="pt-3 border-t border-gray-300">
-                  <div className="flex justify-between">
-                    <span className="font-bold text-gray-900">New Balance:</span>
-                    <span className={`font-bold text-lg ${
-                      getNewBalance() < 0 ? 'text-green-600' :
-                      getNewBalance() > 0 ? 'text-red-600' :
-                      'text-gray-600'
-                    }`}>
-                      {formatCurrency(getNewBalance())}
-                    </span>
-                  </div>
-                  {getExcessPayment() > 0 && (
-                    <div className="text-sm text-yellow-600 mt-2">
-                      Excess: {formatCurrency(getExcessPayment())} credit
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <button
-                onClick={processPayment}
-                disabled={!paymentAmount || parseFloat(paymentAmount) <= 0}
-                className="w-full mt-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-lg flex items-center justify-center"
-              >
-                <Calculator className="w-5 h-5 mr-2" />
-                Process Payment
-              </button>
-              
-              {getExcessPayment() > 0 && (
-                <div className="text-xs text-yellow-600 mt-3 text-center">
-                  Note: Excess payment will be recorded as student credit
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Show invoices if available */}
-      {renderInvoicesSection()}
-    </>
-  )
-);
-
-  // Render recent transactions
-  const renderRecentTransactions = () => (
-    <div className="bg-white rounded-lg border border-gray-300 p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold text-gray-900">Recent Transactions</h3>
-        <button
-          onClick={fetchRecentTransactions}
-          className="text-sm text-blue-600 hover:text-blue-800"
-        >
-          Refresh
-        </button>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Transaction</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Student</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Amount</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Method</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Date</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-300">
-            {recentTransactions.map((transaction) => (
-              <tr key={transaction.id}>
-                <td className="px-4 py-3 text-sm text-gray-900">{transaction.transaction_no}</td>
-                <td className="px-4 py-3">
-                  <div className="text-sm font-medium text-gray-900">
-                    {transaction.first_name} {transaction.last_name}
-                  </div>
-                  <div className="text-xs text-gray-600">{transaction.admission_no}</div>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="font-bold text-green-600">
-                    {formatCurrency(transaction.amount_kes)}
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    transaction.payment_mode === 'Mobile Money' ? 'bg-green-100 text-green-800' :
-                    transaction.payment_mode === 'Cash' ? 'bg-blue-100 text-blue-800' :
-                    transaction.payment_mode === 'Bank Transfer' ? 'bg-purple-100 text-purple-800' :
-                    'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {transaction.payment_mode}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-600">
-                  {new Date(transaction.payment_date).toLocaleDateString()}
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    transaction.status === 'VERIFIED' ? 'bg-green-100 text-green-800' :
-                    transaction.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
-                    'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {transaction.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-      {renderNotification()}
-      {renderClassStudentsModal()}
-      {renderConfirmationModal()}
-      {renderReceiptModal()}
-      
-      <div className="max-w-full">
-        <div className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Fee Payment Management</h1>
-          <p className="text-gray-600 mt-1">Process student fee payments and generate receipts</p>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <Toast show={toast.show} message={toast.message} type={toast.type} onClose={closeToast} />
+
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
+              <FiDollarSign className="text-indigo-600" />
+              Payroll Management
+            </h1>
+            <p className="text-gray-600 mt-2">Process payments, generate reports, and manage financial records</p>
+          </div>
+          <div className="flex items-center gap-4 mt-4 lg:mt-0">
+            <button 
+              onClick={fetchPayrollData}
+              disabled={loading}
+              className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors"
+            >
+              <FiRefreshCw className={loading ? 'animate-spin' : ''} />
+              {loading ? 'Loading...' : 'Refresh'}
+            </button>
+            <button 
+              onClick={exportPayrollReport}
+              disabled={currentPayroll.selectedEmployees.length === 0}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FiDownload />
+              Export Payroll
+            </button>
+          </div>
         </div>
-        
-        <div className="space-y-6">
-          {renderSearchSection()}
-          {renderPaymentForm()}
-          {renderRecentTransactions()}
-        </div>
-        
-        <div className="mt-8 pt-6 border-t border-gray-300 text-center text-gray-600 text-sm">
-          <p>ELIMUHUB Fee Management System • {new Date().getFullYear()}</p>
+
+        {/* Financial Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm">Total Processed</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  Ksh {financialStats.totalProcessed.toLocaleString()}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">All-time payroll</p>
+              </div>
+              <FiDollarSign className="text-blue-500 text-2xl" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm">Current Month</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  Ksh {financialStats.currentMonthPayroll.toLocaleString()}
+                </p>
+                <p className="text-sm text-green-600 mt-1 flex items-center gap-1">
+                  <FiTrendingUp />
+                  {employees.length} employees
+                </p>
+              </div>
+              <FiCalendar className="text-green-500 text-2xl" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-purple-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm">Tax Liabilities</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  Ksh {financialStats.taxLiabilities.toLocaleString()}
+                </p>
+                <p className="text-sm text-purple-600 mt-1">PAYE, NSSF, NHIF</p>
+              </div>
+              <FiFileText className="text-purple-500 text-2xl" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-amber-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm">Pending Payments</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  Ksh {financialStats.pendingPayments.toLocaleString()}
+                </p>
+                <p className="text-sm text-amber-600 mt-1">Awaiting disbursement</p>
+              </div>
+              <FiCreditCard className="text-amber-500 text-2xl" />
+            </div>
+          </div>
         </div>
       </div>
+
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          <p className="flex items-center gap-2">
+            <FiAlertCircle />
+            {error}
+          </p>
+          <button 
+            onClick={fetchPayrollData}
+            className="mt-2 text-red-600 hover:text-red-800 text-sm font-medium"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        {/* Left Column: Employee Selection & Processing */}
+        <div className="xl:col-span-2">
+          {/* Payroll Period Selection */}
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2 mb-4">
+              <FiCalendar className="text-indigo-600" />
+              Payroll Period
+            </h2>
+            
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select Month *</label>
+                <input
+                  type="month"
+                  value={currentPayroll.month}
+                  onChange={(e) => setCurrentPayroll({...currentPayroll, month: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                />
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">
+                  {currentPayroll.selectedEmployees.length} employees selected
+                </span>
+                <button 
+                  onClick={processPayroll}
+                  disabled={currentPayroll.selectedEmployees.length === 0 || loading}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FiSend />
+                  Process Payroll
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Employee Selection */}
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2 mb-4 lg:mb-0">
+                <FiCreditCard className="text-green-600" />
+                Select Employees for Payroll
+              </h2>
+              
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => {
+                    setCurrentPayroll(prev => ({
+                      ...prev,
+                      selectedEmployees: employees.map(emp => emp.id)
+                    }));
+                  }}
+                  className="text-sm text-indigo-600 hover:text-indigo-800"
+                >
+                  Select All
+                </button>
+                <button 
+                  onClick={() => {
+                    setCurrentPayroll(prev => ({
+                      ...prev,
+                      selectedEmployees: []
+                    }));
+                  }}
+                  className="text-sm text-red-600 hover:text-red-800"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="text-center py-8">
+                <FiRefreshCw className="animate-spin mx-auto text-3xl text-gray-400 mb-3" />
+                <p className="text-gray-500">Loading employees...</p>
+              </div>
+            ) : employees.length === 0 ? (
+              <div className="text-center py-8">
+                <FiUser className="mx-auto text-3xl text-gray-400 mb-3" />
+                <p className="text-gray-500">No employees found. Please add staff first.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {employees.map((employee) => {
+                  const isSelected = currentPayroll.selectedEmployees.includes(employee.id);
+                  const payrollData = calculateEmployeePayroll(employee);
+                  
+                  return (
+                    <div 
+                      key={employee.id}
+                      className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                        isSelected 
+                          ? 'border-indigo-500 bg-indigo-50' 
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                      onClick={() => toggleEmployeeSelection(employee.id)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleEmployeeSelection(employee.id)}
+                              className="h-5 w-5 text-indigo-600 rounded"
+                            />
+                            <div>
+                              <p className="font-medium text-gray-800">{employee.full_name || employee.name}</p>
+                              <p className="text-sm text-gray-600">{employee.position} • {employee.department}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <span className="text-gray-500">Basic Salary:</span>
+                              <p className="font-semibold">Ksh {parseFloat(employee.basic_salary).toLocaleString()}</p>
+                            </div>
+                            {payrollData && (
+                              <div>
+                                <span className="text-gray-500">Est. Net:</span>
+                                <p className="font-semibold text-green-600">
+                                  Ksh {Math.round(payrollData.net_salary).toLocaleString()}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="mt-2 text-xs text-gray-500">
+                            {employee.bank_name || employee.bankName || 'N/A'} • {employee.bank_account || employee.bankAccount || 'N/A'}
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col items-end">
+                          {isSelected && (
+                            <FiCheckCircle className="text-indigo-500 text-xl mb-2" />
+                          )}
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEmployee(employee);
+                            }}
+                            className="text-sm text-indigo-600 hover:text-indigo-800"
+                          >
+                            Adjust
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Employee Adjustments Panel */}
+          {selectedEmployee && (
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2 mb-4">
+                <FiEdit className="text-indigo-600" />
+                Adjustments for {selectedEmployee.full_name || selectedEmployee.name}
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Overtime (Hours)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={employeeAdjustments.overtime}
+                    onChange={(e) => setEmployeeAdjustments({...employeeAdjustments, overtime: parseFloat(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Bonus (Ksh)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={employeeAdjustments.bonus}
+                    onChange={(e) => setEmployeeAdjustments({...employeeAdjustments, bonus: parseFloat(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Absent Days</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={employeeAdjustments.absentDays}
+                    onChange={(e) => setEmployeeAdjustments({...employeeAdjustments, absentDays: parseFloat(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+              
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                <textarea
+                  value={employeeAdjustments.notes}
+                  onChange={(e) => setEmployeeAdjustments({...employeeAdjustments, notes: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  rows="3"
+                  placeholder="Any special notes or adjustments..."
+                />
+              </div>
+              
+              <div className="flex justify-end gap-3 mt-6">
+                <button 
+                  onClick={() => {
+                    setSelectedEmployee(null);
+                    setEmployeeAdjustments({ overtime: 0, bonus: 0, absentDays: 0, notes: "" });
+                  }}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    showToast(`Adjustments saved for ${selectedEmployee.full_name || selectedEmployee.name}`, 'success');
+                    setSelectedEmployee(null);
+                    setEmployeeAdjustments({ overtime: 0, bonus: 0, absentDays: 0, notes: "" });
+                  }}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  Save Adjustments
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Summary & Quick Actions */}
+        <div className="xl:col-span-1">
+          {/* Current Payroll Summary */}
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2 mb-4">
+              <FiPieChart className="text-purple-600" />
+              Current Payroll Summary
+            </h2>
+            
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Selected Employees</span>
+                <span className="font-semibold">{selectedTotals.employeeCount} / {employees.length}</span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Total Basic Salaries</span>
+                <span className="font-semibold">Ksh {selectedTotals.totalBasic.toLocaleString()}</span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Total Allowances</span>
+                <span className="font-semibold text-green-600">Ksh {selectedTotals.totalAllowances.toLocaleString()}</span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Total Deductions</span>
+                <span className="font-semibold text-red-600">Ksh {selectedTotals.totalDeductions.toLocaleString()}</span>
+              </div>
+              
+              <div className="pt-4 border-t border-gray-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-semibold text-gray-800">Estimated Net Total</span>
+                  <span className="text-xl font-bold text-green-600">
+                    Ksh {selectedTotals.estimatedNet.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <button 
+              onClick={processPayroll}
+              disabled={currentPayroll.selectedEmployees.length === 0 || loading}
+              className="mt-6 w-full bg-indigo-600 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FiSend />
+              Finalize & Process Payroll
+            </button>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2 mb-4">
+              <FiRefreshCw className="text-indigo-600" />
+              Quick Actions
+            </h2>
+            
+            <div className="space-y-3">
+              <button 
+                onClick={() => {
+                  if (currentPayroll.selectedEmployees.length === 0) {
+                    showToast('Please select employees first', 'warning');
+                    return;
+                  }
+                  currentPayroll.selectedEmployees.forEach(empId => generatePayslip(empId));
+                }}
+                disabled={currentPayroll.selectedEmployees.length === 0}
+                className="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FiFileText className="text-indigo-500" />
+                <span>Generate All Payslips</span>
+              </button>
+              
+              <button 
+                onClick={exportPayrollReport}
+                disabled={currentPayroll.selectedEmployees.length === 0}
+                className="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FiDownload className="text-green-500" />
+                <span>Export Payroll Report</span>
+              </button>
+              
+              <button 
+                onClick={() => showToast('Bank transfer file generated', 'success')}
+                className="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <FiCreditCard className="text-purple-500" />
+                <span>Generate Bank Transfer File</span>
+              </button>
+              
+              <button 
+                onClick={() => showToast('Tax report generated', 'success')}
+                className="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <FiFileText className="text-red-500" />
+                <span>Generate Tax Report</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Payroll History */}
+      <div className="bg-white rounded-xl shadow-lg p-6 mt-8">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6">
+          <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2 mb-4 lg:mb-0">
+            <FiBarChart2 className="text-green-600" />
+            Payroll History & Status
+          </h2>
+          
+          <div className="flex items-center gap-4">
+            <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+              <option>All Status</option>
+              <option>Paid</option>
+              <option>Approved</option>
+              <option>Pending</option>
+              <option>Cancelled</option>
+            </select>
+            <button onClick={fetchPayrollData} className="text-indigo-600 hover:text-indigo-800">
+              <FiRefreshCw className={loading ? 'animate-spin' : ''} />
+            </button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="text-center py-8">
+            <FiRefreshCw className="animate-spin mx-auto text-3xl text-gray-400 mb-3" />
+            <p className="text-gray-500">Loading payroll history...</p>
+          </div>
+        ) : payrollRecords.length === 0 ? (
+          <div className="text-center py-8">
+            <FiFileText className="mx-auto text-3xl text-gray-400 mb-3" />
+            <p className="text-gray-500">No payroll records found</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Payroll Period</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Employees</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Gross Amount</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Deductions</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Net Amount</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Pay Date</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {payrollRecords.map((record) => (
+                  <tr key={record.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-4">
+                      <p className="font-medium text-gray-800">{record.period_name || record.period}</p>
+                      <p className="text-xs text-gray-500">{record.period_code}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                        {record.employee_count || record.details?.length || 0} employees
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 font-semibold text-gray-800">
+                      Ksh {parseFloat(record.total_gross || 0).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-4 text-red-600">
+                      Ksh {parseFloat(record.total_deductions || 0).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-4 font-bold text-green-600">
+                      Ksh {parseFloat(record.total_net || 0).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(record.status)}`}>
+                        {getStatusIcon(record.status)}
+                        {record.status ? record.status.charAt(0).toUpperCase() + record.status.slice(1) : 'Pending'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 text-sm text-gray-600">
+                      {record.pay_date || 'Not set'}
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => {
+                            const employeeId = record.details?.[0]?.employee_id || record.employee_id;
+                            if (employeeId) generatePayslip(employeeId);
+                          }}
+                          className="text-sm text-indigo-600 hover:text-indigo-800"
+                        >
+                          View
+                        </button>
+                        {(record.status === 'pending' || record.status === 'approved') && (
+                          <button 
+                            onClick={() => markAsPaid(record.id)}
+                            className="text-sm text-green-600 hover:text-green-800"
+                          >
+                            Mark Paid
+                          </button>
+                        )}
+                        {record.status === 'pending' && (
+                          <button 
+                            onClick={() => cancelPayroll(record.id)}
+                            className="text-sm text-red-600 hover:text-red-800"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes slide-in {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0%); opacity: 1; }
+        }
+        .animate-slide-in { animation: slide-in 0.3s ease-out; }
+      `}</style>
     </div>
   );
 };
 
-export default PaymentManagement;
+export default PayrollManagement;

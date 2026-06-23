@@ -34,6 +34,9 @@ fee_router.register(r'fees/structures', views.FeeStructureViewSet, basename='fee
 fee_router.register(r'fees/transactions', views.FeeTransactionViewSet, basename='fee-transactions')
 fee_router.register(r'expenses', views.ExpenseViewSet, basename='expenses')
 
+router.register(r'expense-categories', views.ExpenseCategoryViewSet, basename='expense-category')
+router.register(r'payment-methods', views.PaymentMethodViewSet, basename='payment-method')
+
 router.register(r'staff', views.StaffViewSet, basename='staff')
 router.register(r'payroll-components', views.PayrollComponentViewSet, basename='payroll-components')
 router.register(r'payroll-periods', views.PayrollPeriodViewSet, basename='payroll-periods')

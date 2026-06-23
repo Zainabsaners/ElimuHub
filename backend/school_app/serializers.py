@@ -644,18 +644,32 @@ class TransactionStatsSerializer(serializers.Serializer):
             'total_collected': total_collected,
             'collection_rate': round(collection_rate, 2)
         }
-class ExpenseSerializer(serializers.ModelSerializer):
-    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
-    amount = serializers.DecimalField(max_digits=12, decimal_places=2) # Financial precision
+        
+class PaymentMethodSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentMethod
+        fields = ['id', 'name', 'code', 'description', 'icon', 'is_active', 'requires_reference']
+        read_only_fields = ['created_at', 'updated_at']
+class ExpenseCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExpenseCategory
+        fields = ['id', 'name', 'description', 'color', 'icon', 'is_active', 'created_at']
+        read_only_fields = ['created_at']
 
+class ExpenseSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    category_id = serializers.IntegerField(source='category.id', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    
     class Meta:
         model = Expense
         fields = [
-            'id', 'title', 'category', 'amount', 'date', 
-            'vendor', 'payment_method', 'description', 
-            'status', 'approved_by', 'created_by', 'created_by_name'
+            'id', 'title', 'category', 'category_name', 'category_id',
+            'amount', 'date', 'vendor', 'payment_method', 'description',
+            'status', 'created_by', 'created_by_name', 'approved_by',
+            'approved_at', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_by', 'status', 'approved_by']
+        read_only_fields = ['created_by', 'approved_by', 'approved_at', 'created_at', 'updated_at']
 
 class StaffSerializer(serializers.ModelSerializer):
     class Meta:
@@ -674,15 +688,44 @@ class PayrollRecordSerializer(serializers.ModelSerializer):
         model = PayrollRecord
         fields = '__all__'
         read_only_fields = ['gross_salary', 'total_deductions', 'net_salary']
+        
+
 
 class PayrollPeriodSerializer(serializers.ModelSerializer):
-    # This nesting allows the frontend to see all payslips within a month
     records = PayrollRecordSerializer(many=True, read_only=True)
-    
+    employee_details = serializers.ListField(write_only=True, required=False)
+
     class Meta:
         model = PayrollPeriod
         fields = '__all__'
+        # These fields are required for the initial POST (create), 
+        # but required=False allows them to be ignored during PATCH updates.
+        extra_kwargs = {
+            'period_code': {'required': False},
+            'period_name': {'required': False},
+            'start_date': {'required': False},
+            'end_date': {'required': False},
+            'pay_date': {'required': False},
+        }
 
+    def create(self, validated_data):
+        details = validated_data.pop('employee_details', [])
+        period = PayrollPeriod.objects.create(**validated_data)
+        
+        for detail in details:
+            PayrollRecord.objects.create(
+                payroll_period=period,
+                staff_id=detail['employee_id'],
+                basic_salary=detail.get('basic_salary', 0),
+                allowances_total=detail.get('allowances', 0),
+                overtime_total=detail.get('overtime', 0),
+                bonus_total=detail.get('bonus', 0),
+                total_deductions=detail.get('deductions', 0),
+                net_salary=detail.get('net_salary', 0),
+                gross_salary=detail.get('gross_salary', 0)
+                # Ensure all other fields from your model are included here if necessary
+            )
+        return period
 class CompetencySerializer(serializers.ModelSerializer):
     class Meta:
         model = Competency

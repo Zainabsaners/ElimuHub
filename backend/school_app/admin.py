@@ -909,6 +909,10 @@ class ForumPostAdmin(admin.ModelAdmin):
         return title[:100] + '...' if len(title) > 100 else title
     post_title_truncated.short_description = 'Title/Content'
 
+
+class ExpenseAdmin(admin.ModelAdmin):
+    list_display = ('title', 'amount', 'status', 'date')
+    list_filter = ('status', 'category')
 # ==================== REGISTER MODELS ====================
 # User Management
 admin.site.register(User, CustomUserAdmin)
@@ -960,6 +964,7 @@ admin.site.register(StudentFeeInvoice, StudentFeeInvoiceAdmin)
 admin.site.register(InvoiceItem, InvoiceItemAdmin)
 admin.site.register(FeeTransaction, FeeTransactionAdmin)
 admin.site.register(GeneralLedger, GeneralLedgerAdmin)
+admin.site.register(Expense, ExpenseAdmin)
 
 # Attendance & Discipline
 admin.site.register(AttendanceSession, AttendanceSessionAdmin)

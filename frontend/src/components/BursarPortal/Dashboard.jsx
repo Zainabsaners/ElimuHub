@@ -376,7 +376,7 @@ const BursarDashboard = () => {
                             payment.status === 'VERIFIED' ? 'bg-green-100 text-green-800' :
                             payment.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
                             payment.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'
+                            'bg-indigo-100 text-indigo-800'
                           }`}>
                             {payment.status}
                           </span>
@@ -413,7 +413,7 @@ const BursarDashboard = () => {
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div 
-                          className="h-2 rounded-full bg-red-600"
+                          className="h-2 rounded-full bg-indigo-600"
                           style={{ width: barWidth }} 
                         ></div>
                       </div>
@@ -481,11 +481,11 @@ const BursarDashboard = () => {
           </div>
 
           {/* Quick Actions */}
-          <div className="bg-gradient-to-br from-rose-50 to-rose-100 border border-rose-200 rounded-xl p-6">
+          <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200 rounded-xl p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
             <button 
                 onClick={() => navigate('/BursarPortal/Payment')} // Full path for HashRouter
-                className="w-full px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
               >
                 Process Payment
               </button>

@@ -256,20 +256,20 @@ const HelpSupport = () => {
                 </div>
 
                 {/* Emergency Support */}
-                <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-6">
                   <div className="flex items-center space-x-3 mb-4">
                     <span className="text-2xl">🚨</span>
-                    <h3 className="text-xl font-semibold text-red-800">Emergency System Issues</h3>
+                    <h3 className="text-xl font-semibold text-indigo-800">Emergency System Issues</h3>
                   </div>
-                  <p className="text-red-700 mb-4">
+                  <p className="text-indigo-700 mb-4">
                     For critical system failures, payment processing issues, or security concerns, contact the System Administrator immediately.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3">
-                    <button className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors flex items-center justify-center space-x-2">
+                    <button className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center space-x-2">
                       <span>🚨</span>
                       <span>Emergency Hotline</span>
                     </button>
-                    <button className="border border-red-600 text-red-600 px-6 py-3 rounded-lg font-semibold hover:bg-red-50 transition-colors">
+                    <button className="border border-indigo-600 text-indigo-600 px-6 py-3 rounded-lg font-semibold hover:bg-indigo-50 transition-colors">
                       Submit Urgent Ticket
                     </button>
                   </div>

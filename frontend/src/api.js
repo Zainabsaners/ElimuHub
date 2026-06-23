@@ -154,4 +154,75 @@ export const staff = {
     getStats: () => api.get('/api/staff/stats/'),
 };
 
+export const expenseCategories = {
+    getAll: (params) => api.get('/api/expense-categories/', { params }),
+    create: (data) => api.post('/api/expense-categories/', data),
+    update: (id, data) => api.put(`/api/expense-categories/${id}/`, data),
+    delete: (id) => api.delete(`/api/expense-categories/${id}/`),
+    getDefaults: () => api.get('/api/expense-categories/defaults/'),
+};
+
+export const paymentMethods = {
+    getAll: (params) => api.get('/api/payment-methods/', { params }),
+    create: (data) => api.post('/api/payment-methods/', data),
+    update: (id, data) => api.put(`/api/payment-methods/${id}/`, data),
+    delete: (id) => api.delete(`/api/payment-methods/${id}/`),
+    getDefaults: () => api.get('/api/payment-methods/defaults/'),
+};
+
+export const expenses = {
+    getAll: (params) => api.get('/api/expenses/', { params }),
+    getById: (id) => api.get(`/api/expenses/${id}/`),
+    create: (data) => api.post('/api/expenses/', data),
+    update: (id, data) => api.put(`/api/expenses/${id}/`, data),
+    delete: (id) => api.delete(`/api/expenses/${id}/`),
+    getStats: () => api.get('/api/expenses/stats/'),
+};
+
+// ==================== PAYROLL SERVICES ====================
+export const payroll = {
+    // Payroll Periods
+    getPeriods: (params) => api.get('/api/payroll-periods/', { params }),
+    getPeriodById: (id) => api.get(`/api/payroll-periods/${id}/`),
+    createPeriod: (data) => api.post('/api/payroll-periods/', data),
+    updatePeriod: (id, data) => api.put(`/api/payroll-periods/${id}/`, data),
+    deletePeriod: (id) => api.delete(`/api/payroll-periods/${id}/`),
+    
+    // Payroll Records - ADD THESE
+    getRecords: (params) => api.get('/api/payroll-records/', { params }),
+    getRecordById: (id) => api.get(`/api/payroll-records/${id}/`),
+    createRecord: (data) => api.post('/api/payroll-records/', data),
+    updateRecord: (id, data) => api.put(`/api/payroll-records/${id}/`, data),
+    deleteRecord: (id) => api.delete(`/api/payroll-records/${id}/`),
+    getRecordsByPeriod: (periodId) => api.get(`/api/payroll-records/?payroll_period=${periodId}`),
+    
+    // Payroll Components
+    getComponents: (params) => api.get('/api/payroll-components/', { params }),
+    getComponentById: (id) => api.get(`/api/payroll-components/${id}/`),
+    createComponent: (data) => api.post('/api/payroll-components/', data),
+    updateComponent: (id, data) => api.put(`/api/payroll-components/${id}/`, data),
+    deleteComponent: (id) => api.delete(`/api/payroll-components/${id}/`),
+    
+    // Payroll Processing
+    processPayroll: (data) => api.post('/api/payroll/process/', data),
+    getPayrollSummary: (params) => api.get('/api/payroll/summary/', { params }),
+    
+    // Payslips
+    generatePayslip: (employeeId, periodId) => api.get(`/api/payroll/payslip/${employeeId}/${periodId}/`),
+    generateBulkPayslips: (data) => api.post('/api/payroll/bulk-payslips/', data),
+    
+    // Reports
+    getPayrollReport: (params) => api.get('/api/payroll/reports/', { params }),
+    exportPayrollReport: (params) => api.get('/api/payroll/export/', { params, responseType: 'blob' }),
+    
+    // Bank Transfer
+    generateBankTransfer: (data) => api.post('/api/payroll/bank-transfer/', data),
+    
+    // Tax Reports
+    generateTaxReport: (params) => api.get('/api/payroll/tax-report/', { params }),
+    
+    // Statistics
+    getPayrollStats: () => api.get('/api/payroll/stats/'),
+};
+
 export default api;
