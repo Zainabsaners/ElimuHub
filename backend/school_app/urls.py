@@ -64,6 +64,23 @@ urlpatterns = [
     path('api/students/statistics/', views.StudentStatisticsView.as_view(), name='student-statistics'),
     path('api/students/download-template/', views.DownloadTemplateView.as_view(), name='download-template'),
     path('api/students/generate-admission-number/', views.GenerateAdmissionNumberView.as_view(), name='generate-admission-no'),
+    path('api/students/finance/', views.get_student_finance, name='student-finance'),
+    path('api/students/academics/', views.get_student_academics, name='student-academics'),
+    path('api/students/courses/', views.get_student_courses, name='student-courses'),
+    path('api/students/assignments/', views.get_student_assignments, name='student-assignments'),
+    path('api/students/learning-materials/', views.get_student_learning_materials, name='student-learning-materials'),
+    path('api/students/assignments/<int:assignment_id>/', views.get_assignment_detail, name='assignment-detail'),
+    path('api/students/assignments/<int:assignment_id>/submit/', views.submit_assignment, name='submit-assignment'),
+    path('api/students/attendance/', views.get_student_attendance, name='student-attendance'),
+    path('api/students/timetable/', views.get_student_timetable, name='student-timetable'),
+    path('api/students/profile/', views.get_student_profile, name='student-profile'),
+    path('api/students/activities/', views.get_student_activities, name='student-activities'),
+    path('api/students/notifications/', views.get_student_notifications, name='student-notifications'),
+    path('api/students/notifications/<int:notification_id>/read/', views.mark_notification_read, name='mark-notification-read'),
+
+    path('api/students/settings/', views.get_student_settings, name='student-settings'),
+    path('api/students/settings/update/', views.update_student_settings, name='update-student-settings'),
+    path('api/students/settings/change-password/', views.change_student_password, name='change-student-password'),
 
     # 5. Classes management 
     path('api/classes/', views.ClassListAPIView.as_view(), name='class-list'),
@@ -93,7 +110,11 @@ urlpatterns = [
     path('api/fees/generate-invoices/', views.GenerateInvoicesView.as_view(), name='generate-invoices'),
     path('api/fees/current-period/', views.current_period_view, name='current-period'),
     
-    path('api/curriculum/', views.CurriculumTreeView.as_view(), name='curriculum-tree'),    
+    path('api/curriculum/', views.CurriculumTreeView.as_view(), name='curriculum-tree'),   
+
+    path('api/auth/request-reset/', views.request_password_reset, name='request-reset'),
+    path('api/auth/check-reset/<str:admission_no>/', views.check_reset_request_status, name='check-reset'),
+    path('api/auth/force-change-password/', views.force_change_password, name='force-change-password'), 
 
     # 7. Fallback Wildcard Routers (EVALUATED LAST)
     path('api/', include(fee_router.urls)),

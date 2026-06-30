@@ -224,5 +224,15 @@ export const payroll = {
     // Statistics
     getPayrollStats: () => api.get('/api/payroll/stats/'),
 };
+export const studentPortal = {
+    getDashboard: () => api.get('/api/student/dashboard/'),
+    getResults: () => api.get('/api/student/results/'),
+    getFeeStatement: () => api.get('/api/student/fee-statement/'),
+    getAttendance: () => api.get('/api/student/attendance/'),
+    getTimetable: () => api.get('/api/student/timetable/'),
+    getProfile: () => api.get('/api/student/profile/'),
+    getReportCards: () => api.get('/api/student/report-cards/'),
+    activateAccess: (id) => api.post(`/api/students/${id}/activate-access/`),
+};
 
 export default api;

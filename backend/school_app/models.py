@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.conf import settings
 import uuid
 from decimal import Decimal
+from django.db.models import Sum
 
 User = settings.AUTH_USER_MODEL
 
@@ -309,6 +310,20 @@ class Student(models.Model):
         
     def __str__(self):
         return f"{self.full_name} ({self.admission_no})"
+    
+    @property
+    def calculated_balance(self):
+        # Total billed amount
+        total_billed = self.invoices.filter(status='Pending').aggregate(
+            total=Sum('total_amount')
+        )['total'] or 0
+        
+        # Total paid amount
+        total_paid = self.fee_transactions.filter(status='Completed').aggregate(
+            total=Sum('amount_kes')
+        )['total'] or 0
+        
+        return total_billed - total_paid
 
 class StudentAcademicHistory(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='academic_history')
@@ -662,6 +677,14 @@ class Course(models.Model):
     learning_area = models.ForeignKey(LearningArea, on_delete=models.SET_NULL, null=True, blank=True, 
                                      related_name='elearning_courses')
     class_id = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='elearning_courses', null=True, blank=True)
+    teacher = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='taught_courses',
+        help_text="The teacher assigned to teach this course"
+    )
     
     description = models.TextField(blank=True, null=True)
     course_image = models.CharField(max_length=255, blank=True, null=True)
@@ -994,8 +1017,11 @@ class FeeStructure(models.Model):
             models.Index(fields=['class_id']),
         ]
     
-    def __str__(self):
-        return f"{self.academic_year} {self.term} - {self.class_id.class_name} - {self.category.category_name}"
+        def __str__(self):
+            # Safe string representation without format_html
+            class_name = self.class_id.class_name if self.class_id else "No Class"
+            category_name = self.category.category_name if self.category else "No Category"
+            return f"{self.academic_year} {self.term} - {class_name} - {category_name}"
 
 class StudentFeeInvoice(models.Model):
     STATUS_CHOICES = [
@@ -2610,3 +2636,172 @@ class Expense(models.Model):
         if self.payment_method:
             self.payment_method_name = self.payment_method.name
         super().save(*args, **kwargs)
+# ==================== STUDENT SUBMISSIONS ====================
+class StudentSubmission(models.Model):
+    """Student submissions for assignments"""
+    SUBMISSION_STATUS_CHOICES = [
+        ('Draft', 'Draft'),
+        ('Submitted', 'Submitted'),
+        ('Late', 'Late'),
+        ('Graded', 'Graded'),
+        ('Returned', 'Returned'),
+    ]
+    
+    assignment = models.ForeignKey(LearningContent, on_delete=models.CASCADE, related_name='submissions')
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='submissions')
+    
+    # Submission details
+    submission_text = models.TextField(blank=True, null=True)
+    file_upload = models.FileField(upload_to='submissions/', blank=True, null=True)
+    file_name = models.CharField(max_length=255, blank=True, null=True)
+    
+    # Status
+    status = models.CharField(max_length=20, choices=SUBMISSION_STATUS_CHOICES, default='Draft')
+    submitted_at = models.DateTimeField(blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Grading (by teacher)
+    grade = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    feedback = models.TextField(blank=True, null=True)
+    graded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='graded_submissions')
+    graded_at = models.DateTimeField(blank=True, null=True)
+    
+    # Late submission tracking
+    is_late = models.BooleanField(default=False)
+    late_minutes = models.IntegerField(default=0)
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.TextField(blank=True, null=True)
+    
+    class Meta:
+        unique_together = ['assignment', 'student']
+        ordering = ['-submitted_at']
+        indexes = [
+            models.Index(fields=['assignment', 'student']),
+            models.Index(fields=['status']),
+        ]
+    
+    def __str__(self):
+        return f"{self.student.admission_no} - {self.assignment.content_title} ({self.status})"
+    
+    def mark_submitted(self):
+        self.status = 'Submitted'
+        self.submitted_at = timezone.now()
+        self.save()
+
+# ==================== ASSIGNMENT QUESTIONS ====================
+class AssignmentQuestion(models.Model):
+    """Questions within an assignment"""
+    QUESTION_TYPE_CHOICES = [
+        ('text', 'Text Answer'),
+        ('file', 'File Upload'),
+        ('multiple_choice', 'Multiple Choice'),
+        ('true_false', 'True/False'),
+        ('essay', 'Essay'),
+    ]
+    
+    assignment = models.ForeignKey(LearningContent, on_delete=models.CASCADE, related_name='questions')
+    question_text = models.TextField()
+    question_type = models.CharField(max_length=20, choices=QUESTION_TYPE_CHOICES, default='text')
+    question_order = models.IntegerField(default=0)
+    
+    # For multiple choice questions
+    options = models.JSONField(default=list, blank=True)  # [{"label": "A", "text": "Option A"}, ...]
+    correct_answer = models.TextField(blank=True, null=True)
+    
+    # For essay/text answers
+    max_words = models.IntegerField(blank=True, null=True)
+    min_words = models.IntegerField(blank=True, null=True)
+    
+    # Points
+    points = models.DecimalField(max_digits=5, decimal_places=2, default=10)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['question_order', 'id']
+    
+    def __str__(self):
+        return f"Q{self.question_order}: {self.question_text[:50]}..."
+
+class StudentAnswer(models.Model):
+    """Student answers to assignment questions"""
+    question = models.ForeignKey(AssignmentQuestion, on_delete=models.CASCADE, related_name='answers')
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='assignment_answers')
+    submission = models.ForeignKey('StudentSubmission', on_delete=models.CASCADE, related_name='answers')
+    
+    # Answer content
+    answer_text = models.TextField(blank=True, null=True)
+    file_upload = models.FileField(upload_to='answers/', blank=True, null=True)
+    file_name = models.CharField(max_length=255, blank=True, null=True)
+    
+    # For multiple choice
+    selected_option = models.CharField(max_length=10, blank=True, null=True)
+    
+    # Grading
+    score = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    feedback = models.TextField(blank=True, null=True)
+    graded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='graded_answers')
+    graded_at = models.DateTimeField(blank=True, null=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.student.admission_no} - Q{self.question.question_order}"
+
+# ==================== PASSWORD RESET REQUEST ====================
+class PasswordResetRequest(models.Model):
+    """Model to store password reset requests from students"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('completed', 'Completed'),
+        ('rejected', 'Rejected'),
+    ]
+    
+    student = models.ForeignKey('Student', on_delete=models.CASCADE, related_name='reset_requests')
+    admission_no = models.CharField(max_length=30)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_resets')
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    temporary_password = models.CharField(max_length=255, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+    
+    def __str__(self):
+        return f"{self.admission_no} - {self.status}"
+    
+    def mark_approved(self, admin_user):
+        """Mark request as approved and generate temporary password"""
+        import secrets
+        import string
+        
+        # Generate temporary password: 8 characters (letters + digits)
+        alphabet = string.ascii_letters + string.digits
+        temp_password = ''.join(secrets.choice(alphabet) for _ in range(8))
+        # Add special character for complexity
+        temp_password += '!@#'.join(secrets.choice('!@#$%^&*') for _ in range(1))
+        
+        self.status = 'approved'
+        self.reviewed_by = admin_user
+        self.reviewed_at = timezone.now()
+        self.temporary_password = temp_password
+        self.save()
+        
+        # Set the temporary password for the user
+        if self.student.user:
+            self.student.user.set_password(temp_password)
+            self.student.user.save()
+        
+        return temp_password
+    
+    def mark_completed(self):
+        """Mark as completed after password change"""
+        self.status = 'completed'
+        self.completed_at = timezone.now()
+        self.save()

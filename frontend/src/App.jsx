@@ -3,9 +3,13 @@ import { HashRouter as Router, Routes, Route, Outlet, Navigate } from "react-rou
 import Finance from "./components/FinancePortal/Finance";
 import Bursar from "./components/BursarPortal/Bursar";
 import Login from "./components/Authentication/Login";
+import ForgotPassword from "./components/Authentication/ForgotPassword";
+import ForcePasswordChange from "./components/Authentication/ForcePasswordChange";
 import Register from "./components/RegisterPortal/Register";
 import SysAdmin from "./components/SystemAdminPortal/SystemAdmin";
+import StudentDashboard from "./components/StudentPortal/Dashboard";
 import { AuthProvider, useAuth } from "./components/Authentication/AuthContext";
+import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import ProtectedRoute from "./components/Authentication/ProtectedRoute";
 import Logout from "./components/Authentication/Logout";
 import FinanceSidebar from "./components/sidebars/FinanceSidebar";
@@ -13,22 +17,36 @@ import BursarSidebar from "./components/sidebars/BursarSidebar";
 import RegisterSidebar from "./components/sidebars/RegisterSidebar";
 import SysAdminSidebar from "./components/sidebars/SysAdminSidebar";
 import HrSidebar from "./components/sidebars/HrSidebar";
+import StudentSidebar from "./components/sidebars/StudentSidebar";
+import Assignments from './components/StudentPortal/Academics/Assignments';
+import AssignmentDetail from './components/StudentPortal/Academics/AssignmentDetail';
+import LearningMaterials from './components/StudentPortal/Academics/LearningMaterials';
+import Courses from './components/StudentPortal/Academics/Courses';
+import Results from './components/StudentPortal/Academics/Results';
+import ReportCard from './components/StudentPortal/Academics/ReportCard';
+import FeeStatement from './components/StudentPortal/Finance/FeeStatement';
+import Attendance from "./components/StudentPortal/Attendance";
+import Timetable from './components/StudentPortal/Timetable';
+import Profile from "./components/StudentPortal/profile";
+import Settings from "./components/FinancePortal/Settings";
+import Activities from "./components/StudentPortal/Activities/Activities";
+import Notifications from "./components/StudentPortal/Communication/notification";
 
 const Layout = () => {
-    const { user, loading } = useAuth(); 
+    const { user, loading } = useAuth();
+    const { theme } = useTheme();
     
     if (loading) {
         return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-                <div style={{ textAlign: 'center' }}>
-                    <img src="/logo.jpeg" alt="ElimuHub" style={{ width: '80px' }} />
-                    <p>Loading...</p>
+            <div className={`flex items-center justify-center h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
+                <div className="text-center">
+                    <img src="/logo.jpeg" alt="ElimuHub" className="w-20 mx-auto mb-4" />
+                    <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Loading...</p>
                 </div>
             </div>
         );
     }
     
-    // If not logged in, redirect to login
     if (!user) {
         return <Navigate to="/Login" replace />;
     }
@@ -42,59 +60,144 @@ const Layout = () => {
             case 'registrar': return <RegisterSidebar />;
             case 'system_admin': return <SysAdminSidebar />;
             case 'hr_manager': return <HrSidebar />;
-            default: return null;
+            case 'student': return <StudentSidebar />; 
+            default: return <div className="p-4 text-red-500">Access Denied: No portal assigned</div>;
         }
     };
 
     return (
-        <div className="flex flex-col lg:flex-row min-h-screen bg-gray-50">
+        <div className={`flex min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
             {renderSidebar()}
-            <main className="flex-1 p-4 lg:p-8 pb-24 lg:pb-8"> 
+            <main className="flex-1 p-4 lg:p-8 pb-24 lg:pb-8 overflow-x-hidden">
                 <Outlet />
             </main>
         </div>
     );
 };
 
+// ✅ Wrap AuthProvider INSIDE Router
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          {/* Public Routes - No Layout applied */}
-          <Route path="/" element={<Login />} />
-          <Route path="/Login" element={<Login />} />
-          <Route path="/Logout" element={<Logout />} />
+    <Router>
+      <ThemeProvider>
+        <AuthProvider>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Login />} />
+            <Route path="/Login" element={<Login />} />
+            <Route path="/Logout" element={<Logout />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
 
-          {/* Protected Routes - Layout applied */}
-          <Route element={<Layout />}>
-            <Route path="/RegisterPortal/*" element={
-              <ProtectedRoute allowedRoles={['registrar']}>
-                <Register />
-              </ProtectedRoute>
-            } />
-            <Route path="/FinancePortal/*" element={
-              <ProtectedRoute allowedRoles={['accountant']}>
-                <Finance />
-              </ProtectedRoute>
-            } />
-            <Route path="/BursarPortal/*" element={
-              <ProtectedRoute allowedRoles={['bursar']}>
-                <Bursar />
-              </ProtectedRoute>
-            } />
-            <Route path="/SystemAdminPortal/*" element={
-              <ProtectedRoute allowedRoles={['system_admin']}>
-                <SysAdmin />
-              </ProtectedRoute>
-            } />
-          </Route>
+            {/* Protected Routes */}
+            <Route element={<Layout />}>
+              <Route path="/RegisterPortal/*" element={
+                <ProtectedRoute allowedRoles={['registrar']}>
+                  <Register />
+                </ProtectedRoute>
+              } />
+              <Route path="/FinancePortal/*" element={
+                <ProtectedRoute allowedRoles={['accountant']}>
+                  <Finance />
+                </ProtectedRoute>
+              } />
+              <Route path="/BursarPortal/*" element={
+                <ProtectedRoute allowedRoles={['bursar']}>
+                  <Bursar />
+                </ProtectedRoute>
+              } />
+              <Route path="/SystemAdminPortal/*" element={
+                <ProtectedRoute allowedRoles={['system_admin']}>
+                  <SysAdmin />
+                </ProtectedRoute>
+              } />
+              <Route path="/student" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <StudentDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/dashboard" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <StudentDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/finance" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <FeeStatement />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/academics/courses" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <Courses />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/academics/results" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <Results />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/academics/report-cards" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <ReportCard />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/academics/assignments" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <Assignments />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/academics/assignments/:id" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <AssignmentDetail />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/academics/learning" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <LearningMaterials />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/attendance" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <Attendance />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/timetable" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <Timetable />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/profile" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <Profile />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/settings" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <Settings />
+                </ProtectedRoute>
+              } />
+              <Route path="/force-password-change" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <ForcePasswordChange />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/activities" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <Activities />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/communication/notifications" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <Notifications />
+                </ProtectedRoute>
+              } />
+              </Route>
 
-          {/* Catch-all route */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+            {/* Catch-all */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AuthProvider>
+      </ThemeProvider>
+    </Router>
   );
 }
 

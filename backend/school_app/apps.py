@@ -11,3 +11,7 @@ class SchoolAppConfig(AppConfig):
             import school_app.plugins
         except ImportError:
             pass
+        try:
+            import school_app.signals
+        except ImportError:
+            pass

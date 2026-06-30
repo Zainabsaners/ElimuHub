@@ -1,12 +1,11 @@
 /* eslint-disable no-unused-vars */
-
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
 
 const AuthContext = createContext();
-
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -17,11 +16,17 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  
+  const logout = useCallback(() => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    navigate('/login');
+  }, [navigate]);
 
   useEffect(() => {
     const validateSession = async () => {
@@ -30,19 +35,25 @@ export const AuthProvider = ({ children }) => {
 
       if (token && storedUser) {
         try {
-          // Use your backend to verify the token is still valid
+          console.log("Validating session with token...");
           const response = await fetch(`${API_BASE_URL}/api/auth/validate-token/`, {
             method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
           });
-
+          
           if (response.ok) {
+            const data = await response.json();
+            console.log("Validation response:", response.status, data);
             setUser(JSON.parse(storedUser));
           } else {
-            // Token is invalid/expired
+            console.warn("Session invalid, logging out.");
             logout();
           }
         } catch (e) {
+          console.error("Session validation error:", e);
           logout();
         }
       }
@@ -50,14 +61,12 @@ export const AuthProvider = ({ children }) => {
     };
 
     validateSession();
-  }, []);
+  }, [logout]); // ✅ Added logout to dependencies
 
   const login = async (email, password) => {
-    
     setError(null);
     try {
       const url = `${API_BASE_URL}/api/auth/login/`;
-      
       
       const response = await fetch(url, {
         method: 'POST',
@@ -67,8 +76,6 @@ export const AuthProvider = ({ children }) => {
         },
         body: JSON.stringify({ email, password }),
       });
-      
-      
       
       const text = await response.text();
       let data;
@@ -95,7 +102,6 @@ export const AuthProvider = ({ children }) => {
       }
       
       if (!userData.email) userData.email = email;
-      if (!userData.role) userData.role = 'registrar';
       
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
@@ -112,40 +118,56 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const authenticatedFetch = useCallback(async (url, options = {}) => {
+    const token = localStorage.getItem('token');
     
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
+    if (!token) {
+      console.warn('No token found, redirecting to login');
+      navigate('/login');
+      return;
+    }
     
-  };
+    const headers = {
+      ...options.headers,
+      'Authorization': `Bearer ${token}`,
+    };
+    
+    // Only set Content-Type if it's not FormData
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
+    
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      });
+      
+      // Handle 401 - Token expired
+      if (response.status === 401) {
+        console.warn('Token expired, logging out');
+        logout();
+        return;
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Authenticated fetch error:', error);
+      throw error;
+    }
+  }, [navigate, logout]);
 
-  const getAuthHeaders = () => {
+  const getAuthHeaders = useCallback(() => {
     const token = localStorage.getItem('token');
     const headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
     if (token) {
-      const tokenValue = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-      headers['Authorization'] = tokenValue;
+      headers['Authorization'] = `Bearer ${token}`;
     }
     return headers;
-  };
-  const authenticatedFetch = async (url, options = {}) => {
-    const headers = { ...getAuthHeaders(), ...options.headers };
-    
-    const response = await fetch(url, { ...options, headers });
-    
-    if (response.status === 401) {
-      logout(); // Clear localStorage and reset state
-      window.location.href = '/Login'; // Force redirect
-      throw new Error('Unauthorized - Please log in again');
-    }
-    
-    return response;
-  };
-
+  }, []);
 
   const value = {
     user,
@@ -157,8 +179,6 @@ export const AuthProvider = ({ children }) => {
     authenticatedFetch,
     isAuthenticated: !!user,
   };
-
-  
 
   return (
     <AuthContext.Provider value={value}>

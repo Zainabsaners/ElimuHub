@@ -782,3 +782,94 @@ class AuditLogSerializer(serializers.ModelSerializer):
         model = AuditLog
         fields = ['id', 'user', 'user_name', 'action_type', 'model_name', 'object_id', 'timestamp', 'ip_address', 'user_agent']
         read_only_fields = fields
+        
+class InvoiceItemSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='fee_structure.category.category_name', read_only=True)
+    
+    class Meta:
+        model = InvoiceItem
+        fields = ['id', 'description', 'unit_price', 'quantity', 'amount', 'category_name']
+
+class StudentFeeInvoiceSerializer(serializers.ModelSerializer):
+    items = InvoiceItemSerializer(many=True, read_only=True)
+    academic_year = serializers.CharField(source='academic_year.year_name', read_only=True)
+    
+    class Meta:
+        model = StudentFeeInvoice
+        fields = [
+            'id', 'invoice_no', 'academic_year', 'term', 'invoice_date', 
+            'due_date', 'total_amount', 'amount_paid', 'balance_amount', 
+            'status', 'payment_status', 'items'
+        ]
+
+class FeeTransactionSerializer(serializers.ModelSerializer):
+    # This serializer is already partially in your code, 
+    # ensure it supports the 'amount_kes' field correctly
+    class Meta:
+        model = FeeTransaction
+        fields = [
+            'id', 'transaction_no', 'payment_date', 'payment_mode', 
+            'amount_kes', 'status', 'payment_reference'
+        ]
+
+class TermlySummarySerializer(serializers.ModelSerializer):
+    learning_area_name = serializers.CharField(source='learning_area.area_name')
+    learning_area_code = serializers.CharField(source='learning_area.area_code')
+    term_name = serializers.CharField(source='term.term')
+    academic_year_name = serializers.CharField(source='term.academic_year.year_name')
+    
+    # Add rating label for frontend display
+    rating_label = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = TermlySummary
+        fields = [
+            'id', 'learning_area', 'learning_area_name', 'learning_area_code',
+            'final_rating', 'rating_label', 'final_internal_value',
+            'progression_status', 'promotion_status', 'teacher_comment',
+            'term_name', 'academic_year_name', 'is_approved'
+        ]
+    
+    def get_rating_label(self, obj):
+        rating_map = {
+            'EE': 'Exceeding Expectations',
+            'ME': 'Meeting Expectations',
+            'AE': 'Approaching Expectations',
+            'BE': 'Below Expectations'
+        }
+        return rating_map.get(obj.final_rating, 'Not Rated')
+
+class CBEReportCardSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source='student.full_name', default='')
+    admission_no = serializers.CharField(source='student.admission_no', default='')
+    class_name = serializers.CharField(source='class_id.class_name', default='')
+    
+    class Meta:
+        model = CBEReportCard
+        fields = [
+            'id', 'report_id', 'report_type', 'academic_year', 'term',
+            'student_name', 'admission_no', 'class_name',
+            'is_published', 'generated_date', 'report_file_url',
+            'teacher_remarks', 'head_teacher_remarks'
+        ]
+
+class LearningContentSerializer(serializers.ModelSerializer):
+    course_name = serializers.CharField(source='module.course.course_title')
+    course_code = serializers.CharField(source='module.course.course_code')
+    module_name = serializers.CharField(source='module.module_title')
+    
+    # Add status field based on publish date
+    status = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = LearningContent
+        fields = [
+            'id', 'content_title', 'content_type', 'description',
+            'course_name', 'course_code', 'module_name',
+            'created_at', 'publish_date', 'status', 'is_published'
+        ]
+    
+    def get_status(self, obj):
+        if obj.publish_date and obj.publish_date.date() > timezone.now().date():
+            return 'Upcoming'
+        return 'Published'

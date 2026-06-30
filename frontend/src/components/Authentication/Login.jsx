@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from "react";
+import { useNavigate , Link } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { Loader2 } from 'lucide-react';
 
@@ -12,11 +12,11 @@ const Login = () => {
     password: ''
   });
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const { user, login, error: authError } = useAuth();
+  const { _user, login, error: authError } = useAuth();
   const navigate = useNavigate();
 
   
-  const redirectByRole = (role) => {
+  const redirectByRole = (user) => {
     const roleRoutes = {
       'teacher': '/TeacherPortal',
       'accountant': '/FinancePortal',
@@ -27,21 +27,25 @@ const Login = () => {
       'principal': '/PrincipalPortal',
       'deputy_principal': '/DeputyPrincipalPortal',
       'director_studies': '/DirectorPortal',
-      'student': '/StudentPortal',
+      'student': '/student/dashboard',
       'parent': '/ParentPortal',
     };
-    
-    const route = roleRoutes[role] || '/Login';
+
+    if (user && user.force_password_change) {
+      navigate('/force-password-change');
+      return;
+    }
+
+    const route = roleRoutes[user && user.role] || '/Login';
     navigate(route);
   };
 
-  
-  useEffect(() => {
+  /* useEffect(() => {
     if (user) {
       redirectByRole(user.role);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, navigate]);
+  }, [user, navigate]);*/
 
   const handleChange = (e) => {
     setCredentials({
@@ -53,15 +57,15 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoggingIn(true);
-    
+
     try {
       const result = await login(credentials.email, credentials.password);
-      if (!result?.success) {
-        // Error is captured by AuthContext and displayed via authError
+      if (result.success) {
+        redirectByRole(result.user);
+      } else {
         setIsLoggingIn(false);
       }
-    } catch (error) {
-      console.error("Login attempt failed:", error);
+    } catch {
       setIsLoggingIn(false);
     }
   };
@@ -140,6 +144,9 @@ const Login = () => {
               "Sign In"
             )}
           </button>
+          <Link to="/forgot-password" className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline mt-1 inline-block">
+            Forgot Password?
+          </Link>
         </form>
 
         {/* Footer */}

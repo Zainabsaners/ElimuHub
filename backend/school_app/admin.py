@@ -5,6 +5,7 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django.utils import timezone
 from django.contrib import messages
+from django.db import transaction
 from .models import *
 
 
@@ -147,19 +148,77 @@ class PasswordHistoryAdmin(admin.ModelAdmin):
 # ==================== STUDENT MANAGEMENT ====================
 class StudentAdmin(admin.ModelAdmin, ExportCsvMixin):
     list_display = ('admission_no', 'full_name', 'current_class', 'gender', 
-                   'status', 'admission_date', 'created_at')
+                   'status', 'admission_date', 'current_balance', 'created_at')
     list_filter = ('status', 'gender', 'current_class', 'admission_type', 'archived')
     search_fields = ('admission_no', 'first_name', 'last_name', 'phone', 'email', 
                     'guardian_phone', 'guardian_name')
-    readonly_fields = ('student_uid', 'created_at', 'updated_at', 'archived_at')
+    readonly_fields = ('student_uid', 'current_balance','created_at', 'updated_at', 'archived_at')
     date_hierarchy = 'admission_date'
-    actions = ['export_as_csv', 'archive_students', 'restore_students']
+    actions = ['export_as_csv', 'archive_students', 'restore_students', 'activate_portal_access','generate_invoices_for_students',]
+    @admin.action(description='Generate Invoices for Selected Students')
+    def generate_invoices_for_students(self, request, queryset):
+        """
+        Generates invoices for selected students for the current active term.
+        """
+        from .models import FeeStructure, StudentFeeInvoice, InvoiceItem, Term
+        
+        # 1. Get the current term (or you could pass this via a custom form)
+        current_term = Term.objects.filter(is_current=True).first()
+        if not current_term:
+            self.message_user(request, "No active term set. Please set a current term first.", level="ERROR")
+            return
+
+        success_count = 0
+        error_count = 0
+
+        for student in queryset:
+            # Check if invoice already exists for this student/term
+            if StudentFeeInvoice.objects.filter(student=student, term=current_term.term, academic_year=current_term.academic_year).exists():
+                continue # Skip if already exists
+            
+            # Find relevant fee structures for the student's class
+            structures = FeeStructure.objects.filter(
+                class_id=student.current_class,
+                academic_year=current_term.academic_year,
+                term=current_term.term,
+                is_active=True
+            )
+
+            if structures.exists():
+                with transaction.atomic():
+                    invoice = StudentFeeInvoice.objects.create(
+                        student=student,
+                        academic_year=current_term.academic_year.year_name,
+                        term=current_term.term,
+                        due_date=structures.first().due_date,
+                        created_by=request.user,
+                        status='Pending'
+                    )
+                    
+                    total = 0
+                    for struct in structures:
+                        InvoiceItem.objects.create(
+                            invoice=invoice,
+                            fee_structure=struct,
+                            description=struct.category.category_name,
+                            unit_price=struct.amount,
+                            quantity=1
+                        )
+                        total += struct.amount
+                    
+                    invoice.subtotal = total
+                    invoice.save() 
+                    success_count += 1
+            else:
+                error_count += 1
+
+        self.message_user(request, f'Successfully generated {success_count} invoices. Skipped {error_count} students (no fee structure found).')
     
     fieldsets = (
         ('Core Information', {
             'fields': ('admission_no', 'student_uid', 'first_name', 'middle_name', 
                       'last_name', 'date_of_birth', 'gender', 'nationality', 
-                      'religion', 'blood_group', 'user')
+                      'religion', 'blood_group', 'user','current_balance')
         }),
         ('Contact Information', {
             'fields': ('address', 'city', 'country', 'phone', 'email')
@@ -203,6 +262,27 @@ class StudentAdmin(admin.ModelAdmin, ExportCsvMixin):
     
     archive_students.short_description = "Archive selected students"
     restore_students.short_description = "Restore selected students"
+    
+    @admin.action(description='Activate Portal Access for Selected')
+    def activate_portal_access(self, request, queryset):
+        activated_count = 0
+        for student in queryset:
+            if not student.user:
+                # Create the user
+                user = User.objects.create_user(
+                    username=student.admission_no,
+                    email=student.email or f"{student.admission_no}@elimuhub.school",
+                    password=f"{student.admission_no}@2026",
+                    role='student',
+                    first_name=student.first_name,
+                    last_name=student.last_name
+                )
+                # Link the user
+                student.user = user
+                student.save()
+                activated_count += 1
+        
+        self.message_user(request, f'Successfully activated {activated_count} students.', level=messages.SUCCESS)
 
 class StudentAcademicHistoryAdmin(admin.ModelAdmin):
     list_display = ('student', 'academic_year', 'class_id', 'stream',
@@ -342,25 +422,72 @@ class ClassSubjectAllocationAdmin(admin.ModelAdmin):
 
 # ==================== E-LEARNING MODELS ====================
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ('course_code', 'course_title', 'learning_area', 'class_id', 
+    list_display = ('course_code', 'course_title', 'learning_area', 'class_id','teacher',
                    'credit_hours', 'is_published', 'created_by', 'created_at')
     list_filter = ('is_published', 'learning_area', 'class_id')
-    search_fields = ('course_code', 'course_title', 'description', 'created_by__username')
+    search_fields = ('course_code', 'course_title', 'description', 'teacher__username')
     readonly_fields = ('created_at', 'updated_at', 'published_date')
     date_hierarchy = 'created_at'
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('course_code', 'course_title', 'learning_area', 'class_id', 'description')
+        }),
+        ('Teacher & Details', {
+            'fields': ('teacher', 'credit_hours', 'duration_weeks')
+        }),
+        ('Status', {
+            'fields': ('is_published', 'published_date', 'course_image')
+        }),
+        ('Metadata', {
+            'fields': ('created_by', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
 
 class CourseModuleAdmin(admin.ModelAdmin):
     list_display = ('course', 'module_title', 'module_order', 'estimated_hours')
     list_filter = ('course',)
     search_fields = ('module_title', 'description', 'course__course_title')
     filter_horizontal = ('competencies',)
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('course', 'module_title', 'module_order', 'description')
+        }),
+        ('Learning Details', {
+            'fields': ('learning_objectives', 'estimated_hours')
+        }),
+        ('Competencies', {
+            'fields': ('competencies',)
+        }),
+    )
+
 
 class LearningContentAdmin(admin.ModelAdmin):
-    list_display = ('module', 'content_title', 'content_type', 'content_order', 
-                   'is_published', 'created_by')
+    list_display = ('content_title', 'content_type', 'module', 'is_published', 'publish_date')
     list_filter = ('content_type', 'is_published', 'module__course')
-    search_fields = ('content_title', 'description', 'module__module_title')
-    readonly_fields = ('publish_date', 'created_at', 'updated_at')
+    search_fields = ('content_title', 'description', 'module__module_title', 'module__course__course_code')
+    readonly_fields = ('created_at', 'updated_at')
+    list_editable = ('is_published',)
+    list_per_page = 50
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('module', 'content_title', 'content_type', 'content_order')
+        }),
+        ('Content Details', {
+            'fields': ('description', 'content_url', 'file_path', 'file_size', 'duration_minutes')
+        }),
+        ('Access Control', {
+            'fields': ('is_published', 'publish_date', 'requires_completion')
+        }),
+        ('Metadata', {
+            'fields': ('created_by', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('module__course')
 
 class StudentEnrollmentAdmin(admin.ModelAdmin):
     list_display = ('student', 'course', 'enrollment_date', 'enrollment_status', 
@@ -369,6 +496,19 @@ class StudentEnrollmentAdmin(admin.ModelAdmin):
     search_fields = ('student__admission_no', 'student__full_name', 'course__course_title')
     readonly_fields = ('enrollment_date', 'completed_at')
     date_hierarchy = 'enrollment_date'
+    list_editable = ('enrollment_status', 'progress_percentage')
+    
+    fieldsets = (
+        ('Student & Course', {
+            'fields': ('student', 'course')
+        }),
+        ('Enrollment Details', {
+            'fields': ('enrollment_status', 'enrollment_date', 'completed_at')
+        }),
+        ('Progress', {
+            'fields': ('progress_percentage', 'final_score')
+        }),
+    )
 
 class ContentProgressAdmin(admin.ModelAdmin):
     list_display = ('enrollment', 'content', 'is_completed', 'completed_at', 
@@ -376,7 +516,6 @@ class ContentProgressAdmin(admin.ModelAdmin):
     list_filter = ('is_completed', 'content__content_type')
     search_fields = ('enrollment__student__admission_no', 'content__content_title')
     readonly_fields = ('created_at', 'last_accessed', 'completed_at')
-
 # ==================== FINANCE MODULE ====================
 class FeeCategoryAdmin(admin.ModelAdmin):
     list_display = ('category_code', 'category_name', 'frequency', 'is_mandatory', 
@@ -423,6 +562,7 @@ class StudentFeeInvoiceAdmin(admin.ModelAdmin, ExportCsvMixin):
             'classes': ('collapse',)
         }),
     )
+      
     
     def mark_as_paid(self, request, queryset):
         for invoice in queryset:
@@ -909,10 +1049,35 @@ class ForumPostAdmin(admin.ModelAdmin):
         return title[:100] + '...' if len(title) > 100 else title
     post_title_truncated.short_description = 'Title/Content'
 
-
 class ExpenseAdmin(admin.ModelAdmin):
     list_display = ('title', 'amount', 'status', 'date')
     list_filter = ('status', 'category')
+    
+class StudentSubmissionAdmin(admin.ModelAdmin):
+    list_display = ('assignment', 'student', 'status', 'submitted_at', 'grade', 'is_late')
+    list_filter = ('status', 'is_late', 'submitted_at')
+    search_fields = ('student__admission_no', 'assignment__content_title')
+    readonly_fields = ('created_at', 'submitted_at', 'updated_at')
+    date_hierarchy = 'submitted_at'
+    
+    fieldsets = (
+        ('Assignment & Student', {
+            'fields': ('assignment', 'student')
+        }),
+        ('Submission Details', {
+            'fields': ('submission_text', 'file_upload', 'file_name')
+        }),
+        ('Status', {
+            'fields': ('status', 'submitted_at', 'is_late', 'late_minutes')
+        }),
+        ('Grading', {
+            'fields': ('grade', 'feedback', 'graded_by', 'graded_at')
+        }),
+        ('Metadata', {
+            'fields': ('ip_address', 'user_agent', 'created_at'),
+            'classes': ('collapse',)
+        }),
+    )
 # ==================== REGISTER MODELS ====================
 # User Management
 admin.site.register(User, CustomUserAdmin)
@@ -956,6 +1121,7 @@ admin.site.register(QuizQuestion, QuizQuestionAdmin)
 admin.site.register(QuizAttempt, QuizAttemptAdmin)
 admin.site.register(DiscussionForum, DiscussionForumAdmin)
 admin.site.register(ForumPost, ForumPostAdmin)
+admin.site.register(StudentSubmission, StudentSubmissionAdmin)
 
 # Finance Module
 admin.site.register(FeeCategory, FeeCategoryAdmin)
@@ -1010,3 +1176,98 @@ admin.site.register(Parent, ParentAdmin)
 # admin.site.site_header = "School Management System Administration"
 # admin.site.site_title = "SMS Admin Portal"
 # admin.site.index_title = "Welcome to School Management System Administration"
+# ==================== ASSIGNMENT QUESTIONS ADMIN ====================
+@admin.register(AssignmentQuestion)
+class AssignmentQuestionAdmin(admin.ModelAdmin):
+    list_display = ('assignment', 'question_text_preview', 'question_type', 'question_order', 'points')
+    list_filter = ('question_type', 'assignment__module__course')
+    search_fields = ('question_text', 'assignment__content_title')
+    list_editable = ('question_order', 'points')
+    list_per_page = 30
+    
+    fieldsets = (
+        ('Assignment', {
+            'fields': ('assignment', 'question_order')
+        }),
+        ('Question Details', {
+            'fields': ('question_text', 'question_type', 'points')
+        }),
+        ('For Multiple Choice / True/False', {
+            'fields': ('options', 'correct_answer'),
+            'classes': ('collapse',)
+        }),
+        ('For Essay / Text Answers', {
+            'fields': ('min_words', 'max_words'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def question_text_preview(self, obj):
+        return obj.question_text[:100] + '...' if len(obj.question_text) > 100 else obj.question_text
+    question_text_preview.short_description = 'Question'
+
+@admin.register(StudentAnswer)
+class StudentAnswerAdmin(admin.ModelAdmin):
+    list_display = ('student', 'question', 'answer_preview', 'score', 'graded_by')
+    list_filter = ('question__question_type', 'graded_by')
+    search_fields = ('student__admission_no', 'question__question_text', 'answer_text')
+    readonly_fields = ('created_at', 'updated_at')
+    date_hierarchy = 'created_at'
+    
+    def answer_preview(self, obj):
+        return obj.answer_text[:100] + '...' if obj.answer_text and len(obj.answer_text) > 100 else obj.answer_text
+    answer_preview.short_description = 'Answer'
+
+# ==================== PASSWORD RESET ADMIN ====================
+@admin.register(PasswordResetRequest)
+class PasswordResetRequestAdmin(admin.ModelAdmin):
+    list_display = ('admission_no', 'student', 'status', 'requested_at', 'reviewed_by', 'temporary_password')
+    list_filter = ('status', 'requested_at')
+    search_fields = ('admission_no', 'student__first_name', 'student__last_name', 'student__email')
+    readonly_fields = ('requested_at', 'temporary_password', 'reviewed_at', 'completed_at')
+    actions = ['approve_requests', 'reject_requests']
+    date_hierarchy = 'requested_at'
+    
+    fieldsets = (
+        ('Student Information', {
+            'fields': ('student', 'admission_no')
+        }),
+        ('Request Status', {
+            'fields': ('status', 'requested_at', 'reviewed_by', 'reviewed_at')
+        }),
+        ('Temporary Password', {
+            'fields': ('temporary_password', 'completed_at')
+        }),
+        ('Notes', {
+            'fields': ('notes',)
+        }),
+    )
+    
+    @admin.action(description='Approve selected password reset requests')
+    def approve_requests(self, request, queryset):
+        approved_count = 0
+        for reset_request in queryset.filter(status='pending'):
+            if reset_request.student.user:
+                temp_password = reset_request.mark_approved(request.user)
+                approved_count += 1
+                self.message_user(
+                    request, 
+                    f"✅ {reset_request.admission_no}: Temporary password generated: {temp_password}"
+                )
+            else:
+                self.message_user(
+                    request,
+                    f"⚠️ {reset_request.admission_no}: Student has no user account. Please activate portal access first.",
+                    level='WARNING'
+                )
+        
+        if approved_count > 0:
+            self.message_user(request, f"✅ Successfully approved {approved_count} requests.")
+    
+    @admin.action(description='Reject selected password reset requests')
+    def reject_requests(self, request, queryset):
+        updated = queryset.update(status='rejected', reviewed_by=request.user, reviewed_at=timezone.now())
+        self.message_user(request, f"Rejected {updated} requests.")
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('student', 'student__user')

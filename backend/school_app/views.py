@@ -91,8 +91,21 @@ class LoginView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         user = serializer.validated_data['user']
-        user.last_login = timezone.now()
-        user.save(update_fields=['last_login'])
+        force_password_change = False
+        if hasattr(user, 'student_profile'):
+            student = user.student_profile
+            reset_request = PasswordResetRequest.objects.filter(
+                student=student,
+                status='approved'
+            ).order_by('-requested_at').first()
+            
+            if reset_request:
+                reset_request.status = 'completed'
+                reset_request.completed_at = timezone.now()
+                reset_request.save()
+                force_password_change = True
+                user.last_login = timezone.now()
+                user.save(update_fields=['last_login'])
 
        
         # Generate tokens
@@ -157,6 +170,7 @@ class LoginView(APIView):
                 'role': user.role,  
                 'phone': user.phone if hasattr(user, 'phone') else None,
                 'last_login': user.last_login,
+                'force_password_change': force_password_change, 
             },
             'session_id': session.id
         }, status=status.HTTP_200_OK)
@@ -1957,6 +1971,121 @@ class StudentViewSet(viewsets.ModelViewSet):
                 'success': False,
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+    @action(detail=False, methods=['get'], url_path='dashboard', permission_classes=[permissions.IsAuthenticated])
+    def get_student_dashboard(self, request):
+        try:
+            # 1. Fetch the student profile for the current logged-in user
+            student = request.user.student_profile
+            term = Term.objects.filter(is_current=True).first()
+            
+            # 2. Financial Aggregation
+            invoices = StudentFeeInvoice.objects.filter(student=student)
+            total_due = invoices.aggregate(total=Sum('total_amount'))['total'] or 0
+            total_paid = invoices.aggregate(total=Sum('amount_paid'))['total'] or 0
+            
+            # 3. Academic Aggregation (Termly Summary)
+            summaries = TermlySummary.objects.filter(student=student, term=term)
+            avg_gpa = summaries.aggregate(avg=Avg('final_internal_value'))['avg'] or 0
+            
+            # 4. Construct Dashboard Payload
+            data = {
+                "stats": {
+                    "balance": float(student.current_balance),
+                    "gpa": round(float(avg_gpa), 2),
+                    "attendance": student.attendance_records.filter(attendance_status='Present').count(),
+                    "courses": StudentEnrollment.objects.filter(student=student).count(),
+                },
+                "financial_summary": {
+                    "total_paid": float(total_paid),
+                    "total_due": float(total_due),
+                    "pending": float(student.current_balance)
+                },
+                "current_term": {
+                    "term": term.term if term else "N/A",
+                    "academic_year": term.academic_year.year_name if term else "N/A",
+                    "weeks_remaining": 6, 
+                    "total_weeks": 14
+                },
+                "recent_activity": list(AuditLog.objects.filter(user=request.user).order_by('-event_time')[:5].values('event_type', 'event_time')),
+                "upcoming_deadlines": [
+                    {
+                        "title": d.category.category_name, 
+                        "date": d.due_date.isoformat(),
+                        "days_left": (d.due_date - timezone.now().date()).days
+                    } for d in FeeStructure.objects.filter(class_id=student.current_class).order_by('due_date')[:3]
+                ]
+            }
+            
+            return Response(data, status=status.HTTP_200_OK)
+            
+        except Student.DoesNotExist:
+            return Response({"error": "Student profile not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Dashboard error: {str(e)}")
+            return Response({"error": "Failed to load dashboard data"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def activate_portal_access(self, request, pk=None):
+        """
+        Creates a User account for an existing Student and links them.
+        This is a one-time admin action.
+        """
+        student = self.get_object()
+        
+        if student.user:
+            return Response({"error": "Student already has an active account"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 1. Create the user
+        # Using admission_no as username to ensure uniqueness
+        user = User.objects.create_user(
+            username=student.admission_no,
+            email=student.email or f"{student.admission_no}@elimuhub.school",
+            password=f"{student.admission_no}@2026", # Default policy: Admission + @2026
+            role='student',
+            first_name=student.first_name,
+            last_name=student.last_name,
+            phone=student.phone
+        )
+        
+        # 2. Link the student
+        student.user = user
+        student.save()
+        
+        # 3. Log the action
+        AuditLog.objects.create(
+            event_type='USER_CREATE',
+            user=request.user,
+            username=request.user.username,
+            table_name='auth_user',
+            record_id=user.id,
+            operation='INSERT',
+            new_values={'username': user.username, 'student_id': student.id}
+        )
+        
+        return Response({"message": "Student portal access activated successfully", "username": user.username})
+    
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def bulk_activate_access(self, request):
+        """
+        Activates all orphans. 
+        Use with caution: ensure you only run this for your test batch.
+        """
+        students = Student.objects.filter(user=None)[:5] # Just the first 5 for your test
+        count = 0
+        for s in students:
+            user = User.objects.create_user(
+                username=s.admission_no,
+                email=s.email or f"{s.admission_no}@elimuhub.school",
+                password=f"{s.admission_no}@2026",
+                role='student',
+                first_name=s.first_name,
+                last_name=s.last_name
+            )
+            s.user = user
+            s.save()
+            count += 1
+            
+        return Response({"message": f"Activated {count} students"})
     
 
 
@@ -3751,3 +3880,1225 @@ class BackupViewSet(viewsets.ViewSet):
             i += 1
         
         return f"{size_bytes:.2f} {size_names[i]}"
+    
+    
+# ==================== STUDENT FINANCE PORTAL VIEWS ===================
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_student_finance(request):
+    """
+    Retrieves fee statement and transaction history for the authenticated student.
+    """
+    # 1. Ensure the user is a student and has a profile
+    # Ensure Student and User models are imported
+    if not hasattr(request.user, 'student_profile'):
+        return Response({"error": "No student profile found for this user"}, status=status.HTTP_404_NOT_FOUND)
+    
+    student = request.user.student_profile
+    
+    # 2. Define the queries to fix the 'is not defined' errors
+    invoices = StudentFeeInvoice.objects.filter(student=student).order_by('-invoice_date')
+    transactions = FeeTransaction.objects.filter(student=student).order_by('-payment_date')
+    
+    # 3. Calculate totals to define 'total_due' and 'total_paid'
+    total_due = invoices.aggregate(total=Sum('total_amount'))['total'] or 0
+    total_paid = transactions.filter(status='Completed').aggregate(total=Sum('amount_kes'))['total'] or 0
+    
+    # 4. Construct summary dictionary
+    summary = {
+        "total_due": float(total_due),
+        "total_paid": float(total_paid),
+        "balance": float(student.current_balance) 
+    }
+    
+    # 5. Serialize and return response
+    return Response({
+        "invoices": StudentFeeInvoiceSerializer(invoices, many=True).data,
+        "transactions": FeeTransactionSerializer(transactions, many=True).data,
+        "summary": summary
+    })
+    
+# ==================== STUDENT ACADEMIC PORTAL VIEWS ====================
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_student_academics(request):
+    """
+    Retrieves academic data for the authenticated student.
+    Optimized with select_related, active enrollments filtering, and empty state handling.
+    """
+    if not hasattr(request.user, 'student_profile'):
+        return Response({"error": "No student profile found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    student = request.user.student_profile
+    term = Term.objects.filter(is_current=True).first()
+    
+    # 1. Get termly summaries with learning area details
+    summaries = TermlySummary.objects.filter(
+        student=student
+    ).select_related(
+        'term', 
+        'learning_area',
+        'term__academic_year'
+    ).order_by('-term__academic_year__start_date')
+    
+    # 2. Get report cards (published only)
+    report_cards = CBEReportCard.objects.filter(
+        student=student,
+        is_published=True
+    ).select_related(
+        'student',
+        'class_id'
+    ).order_by('-academic_year', '-term')
+    
+    # 3. Get assignments from ACTIVE enrollments only
+    active_enrollments = StudentEnrollment.objects.filter(
+        student=student,
+        enrollment_status='Active'
+    )
+    
+    assignments = LearningContent.objects.filter(
+        module__course__in=active_enrollments.values_list('course', flat=True),
+        content_type='Assignment',
+        is_published=True
+    ).select_related(
+        'module__course'
+    ).order_by('-publish_date', '-created_at')
+    
+    # 4. Get active courses for the student
+    active_courses = active_enrollments.select_related('course').values(
+        'course__id', 
+        'course__course_code', 
+        'course__course_title'
+    )
+    
+    # 5. Calculate summary statistics for dashboard card
+    total_courses = active_enrollments.count()
+    completed_courses = StudentEnrollment.objects.filter(
+        student=student,
+        enrollment_status='Completed'
+    ).count()
+    
+    # 6. Get latest term result summary
+    latest_summary = summaries.first()
+    latest_rating = None
+    if latest_summary and hasattr(latest_summary, 'final_rating'):
+        latest_rating = latest_summary.final_rating
+    
+    # 7. Prepare response with empty state handling
+    return Response({
+        "summaries": TermlySummarySerializer(summaries, many=True).data,
+        "report_cards": CBEReportCardSerializer(report_cards, many=True).data,
+        "assignments": LearningContentSerializer(assignments, many=True).data,
+        "active_courses": list(active_courses),
+        "current_term": {
+            "term": term.term if term else "N/A",
+            "academic_year": term.academic_year.year_name if term else "N/A",
+        },
+        "summary_stats": {
+            "total_courses": total_courses,
+            "completed_courses": completed_courses,
+            "latest_rating": latest_rating,
+            "has_summaries": summaries.exists(),
+            "has_report_cards": report_cards.exists(),
+            "has_assignments": assignments.exists(),
+        }
+    })
+    
+# ==================== STUDENT COURSES VIEW ====================
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_student_courses(request):
+    """
+    Retrieves all active courses for the authenticated student.
+    Uses StudentEnrollment model to link student to courses.
+    """
+    if not hasattr(request.user, 'student_profile'):
+        return Response({"error": "No student profile found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    student = request.user.student_profile
+    
+    # ✅ Uses StudentEnrollment model
+    enrollments = StudentEnrollment.objects.filter(
+        student=student,
+        enrollment_status='Active'
+    ).select_related(
+        'course',
+        'course__teacher'
+    )
+    
+    # Map to clean format
+    data = []
+    for enrollment in enrollments:
+        course = enrollment.course
+        teacher_name = "TBA"
+        if course.teacher:
+            teacher_name = f"{course.teacher.first_name} {course.teacher.last_name}".strip() or "TBA"
+        
+        # Get progress from ContentProgress
+        progress = ContentProgress.objects.filter(
+            enrollment=enrollment,
+            is_completed=True
+        ).count()
+        
+        total_content = LearningContent.objects.filter(
+            module__course=course,
+            is_published=True
+        ).count()
+        
+        progress_percentage = round((progress / total_content * 100) if total_content > 0 else 0)
+        
+        data.append({
+            'id': course.id,
+            'title': course.course_title,
+            'code': course.course_code,
+            'description': course.description or 'No description available',
+            'teacher': teacher_name,
+            'credits': course.credit_hours or 0,
+            'duration_weeks': course.duration_weeks or 12,
+            'progress': progress_percentage,
+            'enrollment_status': enrollment.enrollment_status,
+            'enrollment_date': enrollment.enrollment_date,
+        })
+    
+    return Response({
+        'success': True,
+        'data': data,
+        'count': len(data)
+    })
+# Add to views.py
+
+# ==================== STUDENT ASSIGNMENTS VIEW ====================
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_student_assignments(request):
+    """
+    Retrieves all assignments for the authenticated student's active courses.
+    Includes submission status for each assignment.
+    """
+    if not hasattr(request.user, 'student_profile'):
+        return Response({"error": "No student profile found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    student = request.user.student_profile
+    
+    # Get active enrollments
+    enrollments = StudentEnrollment.objects.filter(
+        student=student,
+        enrollment_status='Active'
+    ).values_list('course', flat=True)
+    
+    # Get assignments for those courses
+    assignments = LearningContent.objects.filter(
+        module__course__in=enrollments,
+        content_type='Assignment',
+        is_published=True
+    ).select_related(
+        'module__course',
+        'module__course__teacher'
+    ).order_by('-publish_date', '-created_at')
+    
+    data = []
+    for assignment in assignments:
+        course = assignment.module.course
+        
+        # Get teacher name
+        teacher_name = "TBA"
+        if course.teacher:
+            teacher_name = f"{course.teacher.first_name} {course.teacher.last_name}".strip() or "TBA"
+        
+        # ✅ Check if student has submitted (using StudentSubmission model)
+        submission = StudentSubmission.objects.filter(
+            assignment=assignment,
+            student=student
+        ).first()
+        
+        has_submitted = submission is not None and submission.status in ['Submitted', 'Graded']
+        
+        # Get submission status for display
+        submission_status = 'Not Submitted'
+        if submission:
+            submission_status = submission.status
+        
+        data.append({
+            'id': assignment.id,
+            'title': assignment.content_title,
+            'description': assignment.description or 'No description',
+            'course_code': course.course_code,
+            'course_title': course.course_title,
+            'teacher': teacher_name,
+            'publish_date': assignment.publish_date,
+            'content_type': assignment.content_type,
+            'has_submitted': has_submitted,
+            'submission_status': submission_status,
+            'submission_id': submission.id if submission else None,
+            'file_path': assignment.file_path,
+            'content_url': assignment.content_url,
+        })
+    
+    return Response({
+        'success': True,
+        'data': data,
+        'count': len(data)
+    })
+    
+
+# ==================== STUDENT LEARNING MATERIALS VIEW ====================
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_student_learning_materials(request):
+    """
+    Retrieves all learning materials for the authenticated student's active courses.
+    """
+    if not hasattr(request.user, 'student_profile'):
+        return Response({"error": "No student profile found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    student = request.user.student_profile
+    
+    # Get active enrollments
+    enrollments = StudentEnrollment.objects.filter(
+        student=student,
+        enrollment_status='Active'
+    ).values_list('course', flat=True)
+    
+    # Get learning materials (excluding assignments)
+    materials = LearningContent.objects.filter(
+        module__course__in=enrollments,
+        is_published=True
+    ).exclude(
+        content_type='Assignment'
+    ).select_related(
+        'module__course',
+        'module__course__teacher'
+    ).order_by('-publish_date', '-created_at')
+    
+    data = []
+    for material in materials:
+        course = material.module.course
+        
+        # Get content type icon mapping
+        content_icon = {
+            'Video': '🎬',
+            'Document': '📄',
+            'Presentation': '📊',
+            'Quiz': '📝',
+            'Link': '🔗',
+            'Audio': '🎵',
+            'Image': '🖼️',
+        }.get(material.content_type, '📚')
+        
+        data.append({
+            'id': material.id,
+            'title': material.content_title,
+            'description': material.description,
+            'content_type': material.content_type,
+            'content_icon': content_icon,
+            'course_code': course.course_code,
+            'course_title': course.course_title,
+            'publish_date': material.publish_date,
+            'file_path': material.file_path,
+            'content_url': material.content_url,
+            'duration_minutes': material.duration_minutes,
+        })
+    
+    return Response({
+        'success': True,
+        'data': data,
+        'count': len(data)
+    })
+# Add to views.py
+
+# ==================== ASSIGNMENT DETAIL VIEW ====================
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_assignment_detail(request, assignment_id):
+    """
+    Retrieves assignment details with submission status for the authenticated student.
+    """
+    if not hasattr(request.user, 'student_profile'):
+        return Response({"error": "No student profile found"}, status=404)
+    
+    student = request.user.student_profile
+    
+    try:
+        assignment = LearningContent.objects.get(
+            id=assignment_id,
+            content_type='Assignment',
+            is_published=True
+        )
+    except LearningContent.DoesNotExist:
+        return Response({"error": "Assignment not found"}, status=404)
+    
+    # Get teacher name
+    teacher_name = "TBA"
+    if assignment.module.course.teacher:
+        teacher_name = f"{assignment.module.course.teacher.first_name} {assignment.module.course.teacher.last_name}".strip() or "TBA"
+    
+    # Get student's submission
+    submission = StudentSubmission.objects.filter(
+        assignment=assignment,
+        student=student
+    ).first()
+    
+    questions = AssignmentQuestion.objects.filter(
+        assignment=assignment
+    ).order_by('question_order')
+    
+    submission_data = None
+    if submission:
+        submission_data = {
+            'id': submission.id,
+            'status': submission.status,
+            'submission_text': submission.submission_text,
+            'file_upload': submission.file_upload.url if submission.file_upload else None,
+            'submitted_at': submission.submitted_at,
+            'grade': submission.grade,
+            'feedback': submission.feedback,
+            'is_late': submission.is_late,
+        }
+    
+    data = {
+        'id': assignment.id,
+        'title': assignment.content_title,
+        'description': assignment.description,
+        'course_code': assignment.module.course.course_code,
+        'course_title': assignment.module.course.course_title,
+        'teacher': teacher_name,
+        'publish_date': assignment.publish_date,
+        'content_type': assignment.content_type,
+        'content_url': assignment.content_url,
+        'file_path': assignment.file_path,
+        'submission': submission_data,
+        'questions': [
+            {
+                'id': q.id,
+                'question_text': q.question_text,
+                'question_type': q.question_type,
+                'question_order': q.question_order,
+                'points': q.points,
+                'options': q.options,
+                'min_words': q.min_words,
+                'max_words': q.max_words,
+            }
+            for q in questions
+        ],
+        'total_points': sum(q.points for q in questions)
+    }
+    
+    return Response(data)     
+
+
+
+# ==================== SUBMIT ASSIGNMENT VIEW ====================
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def submit_assignment(request, assignment_id):
+    """
+    Submit or update an assignment submission.
+    Handles both JSON and FormData.
+    """
+    if not hasattr(request.user, 'student_profile'):
+        return Response({"error": "No student profile found"}, status=404)
+    
+    student = request.user.student_profile
+    
+    try:
+        assignment = LearningContent.objects.get(
+            id=assignment_id,
+            content_type='Assignment',
+            is_published=True
+        )
+    except LearningContent.DoesNotExist:
+        return Response({"error": "Assignment not found"}, status=404)
+    
+    # Get or create submission
+    submission, created = StudentSubmission.objects.get_or_create(
+        assignment=assignment,
+        student=student
+    )
+    
+    # Update submission status
+    submission.status = request.data.get('status', 'Submitted')
+    
+    # Handle answers - check if we have FormData or JSON
+    answers_data = {}
+    
+    # If request is FormData (has files)
+    if request.content_type and 'multipart/form-data' in request.content_type:
+        # Parse FormData
+        for key, value in request.data.items():
+            if key.startswith('answers[') and key.endswith(']'):
+                # Extract question_id from answers[123]
+                question_id = key.replace('answers[', '').replace(']', '')
+                answers_data[question_id] = value
+        
+        # Handle file uploads
+        for key, file in request.FILES.items():
+            if key.startswith('file_'):
+                question_id = key.replace('file_', '')
+                # Store file info for this question
+                answers_data[question_id] = {
+                    'file': file,
+                    'file_name': file.name
+                }
+    else:
+        # Handle JSON request
+        answers_data = request.data.get('answers', {})
+    
+    # Process answers
+    for question_id, answer_value in answers_data.items():
+        try:
+            question = AssignmentQuestion.objects.get(id=question_id, assignment=assignment)
+            
+            # Get or create student answer
+            student_answer, _ = StudentAnswer.objects.get_or_create(
+                question=question,
+                student=student,
+                submission=submission
+            )
+            
+            if isinstance(answer_value, dict) and 'file' in answer_value:
+                # Handle file upload
+                student_answer.file_upload = answer_value['file']
+                student_answer.file_name = answer_value.get('file_name', '')
+            else:
+                # Handle text answer
+                student_answer.answer_text = answer_value
+            
+            student_answer.save()
+            
+        except AssignmentQuestion.DoesNotExist:
+            continue
+    
+    # Set submission time
+    if submission.status == 'Submitted' and not submission.submitted_at:
+        submission.submitted_at = timezone.now()
+    
+    submission.save()
+    
+    # Return updated submission
+    submission_data = {
+        'id': submission.id,
+        'status': submission.status,
+        'submitted_at': submission.submitted_at,
+        'grade': submission.grade,
+        'feedback': submission.feedback,
+    }
+    
+    return Response({
+        'message': 'Assignment submitted successfully',
+        'submission': submission_data
+    })
+    
+# ==================== STUDENT ATTENDANCE VIEW ====================
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_student_attendance(request):
+    """
+    Retrieves attendance records for the authenticated student.
+    """
+    if not hasattr(request.user, 'student_profile'):
+        return Response({"error": "No student profile found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    student = request.user.student_profile
+    
+    # Get all attendance records for this student
+    attendance_records = StudentAttendance.objects.filter(
+        student=student
+    ).select_related(
+        'session',
+        'session__class_id',
+        'session__subject'
+    ).order_by('-session__session_date', '-session__start_time')
+    
+    # Get summary statistics
+    total_records = attendance_records.count()
+    present_count = attendance_records.filter(attendance_status='Present').count()
+    absent_count = attendance_records.filter(attendance_status='Absent').count()
+    late_count = attendance_records.filter(attendance_status='Late').count()
+    excused_count = attendance_records.filter(attendance_status='Excused').count()
+    
+    # Calculate attendance percentage
+    attendance_percentage = 0
+    if total_records > 0:
+        attendance_percentage = round((present_count / total_records) * 100, 1)
+    
+    # Group by month for chart data
+    monthly_data = {}
+    for record in attendance_records:
+        month_key = record.session.session_date.strftime('%Y-%m')
+        if month_key not in monthly_data:
+            monthly_data[month_key] = {'present': 0, 'absent': 0, 'late': 0, 'total': 0}
+        
+        monthly_data[month_key]['total'] += 1
+        if record.attendance_status == 'Present':
+            monthly_data[month_key]['present'] += 1
+        elif record.attendance_status == 'Absent':
+            monthly_data[month_key]['absent'] += 1
+        elif record.attendance_status == 'Late':
+            monthly_data[month_key]['late'] += 1
+    
+    # Format monthly data for chart
+    chart_data = []
+    for month, data in sorted(monthly_data.items()):
+        chart_data.append({
+            'month': month,
+            'present': data['present'],
+            'absent': data['absent'],
+            'late': data['late'],
+        })
+    
+    # Serialize attendance records
+    records_data = []
+    for record in attendance_records[:50]:  # Limit to last 50 records
+        records_data.append({
+            'id': record.id,
+            'date': record.session.session_date,
+            'status': record.attendance_status,
+            'session_type': record.session.session_type,
+            'class_name': record.session.class_id.class_name if record.session.class_id else 'N/A',
+            'subject': record.session.subject.area_name if record.session.subject else 'General',
+            'start_time': record.session.start_time,
+            'end_time': record.session.end_time,
+            'check_in_time': record.check_in_time,
+            'late_minutes': record.late_minutes,
+            'remarks': record.remarks,
+        })
+    
+    return Response({
+        'success': True,
+        'data': {
+            'records': records_data,
+            'summary': {
+                'total': total_records,
+                'present': present_count,
+                'absent': absent_count,
+                'late': late_count,
+                'excused': excused_count,
+                'attendance_percentage': attendance_percentage,
+            },
+            'chart_data': chart_data,
+            'recent_attendance': records_data[:10],
+        }
+    })
+    
+# ==================== STUDENT TIMETABLE VIEW ====================
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_student_timetable(request):
+    """
+    Retrieves the timetable for the authenticated student's class.
+    """
+    if not hasattr(request.user, 'student_profile'):
+        return Response({"error": "No student profile found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    student = request.user.student_profile
+    
+    # Get the student's class
+    if not student.current_class:
+        return Response({"error": "Student not assigned to a class"}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Get the current term
+    current_term = Term.objects.filter(is_current=True).first()
+    if not current_term:
+        return Response({"error": "No active term found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Get timetable entries for the student's class
+    timetable_entries = Timetable.objects.filter(
+        class_id=student.current_class,
+        academic_year=current_term.academic_year.year_name,
+        term=current_term.term,
+        is_active=True
+    ).select_related(
+        'subject',
+        'teacher'
+    ).order_by('day_of_week', 'period')
+    
+    # Day names mapping
+    day_names = {
+        1: 'Monday',
+        2: 'Tuesday',
+        3: 'Wednesday',
+        4: 'Thursday',
+        5: 'Friday',
+        6: 'Saturday',
+        7: 'Sunday',
+    }
+    
+    # Organize by day
+    timetable_by_day = {}
+    for entry in timetable_entries:
+        day_name = day_names.get(entry.day_of_week, f'Day {entry.day_of_week}')
+        if day_name not in timetable_by_day:
+            timetable_by_day[day_name] = []
+        
+        timetable_by_day[day_name].append({
+            'id': entry.id,
+            'period': entry.period,
+            'subject': entry.subject.area_name if entry.subject else 'N/A',
+            'subject_code': entry.subject.area_code if entry.subject else 'N/A',
+            'teacher': f"{entry.teacher.first_name} {entry.teacher.last_name}".strip() if entry.teacher else 'TBA',
+            'room': entry.room or 'N/A',
+            'day_of_week': entry.day_of_week,
+            'academic_year': entry.academic_year,
+            'term': entry.term,
+            'is_active': entry.is_active,
+        })
+    
+    # Get periods count
+    max_periods = timetable_entries.aggregate(max_periods=models.Max('period'))['max_periods'] or 8
+    
+    # Format for frontend
+    days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    formatted_timetable = []
+    
+    for day in days_order:
+        if day in timetable_by_day:
+            # Sort by period
+            entries = sorted(timetable_by_day[day], key=lambda x: x['period'])
+            formatted_timetable.append({
+                'day': day,
+                'entries': entries,
+                'has_classes': True
+            })
+        else:
+            formatted_timetable.append({
+                'day': day,
+                'entries': [],
+                'has_classes': False
+            })
+    
+    return Response({
+        'success': True,
+        'data': {
+            'timetable': formatted_timetable,
+            'max_periods': max_periods,
+            'class_name': student.current_class.class_name,
+            'academic_year': current_term.academic_year.year_name,
+            'term': current_term.term,
+            'student_name': student.full_name,
+        }
+    })
+# ==================== STUDENT PROFILE VIEW ====================
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_student_profile(request):
+    """
+    Retrieves the authenticated student's profile information.
+    """
+    if not hasattr(request.user, 'student_profile'):
+        return Response({"error": "No student profile found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    student = request.user.student_profile
+    
+    # Get academic history
+    academic_history = StudentAcademicHistory.objects.filter(
+        student=student
+    ).order_by('-academic_year')[:5]
+    
+    # Get current enrollment
+    current_enrollment = StudentEnrollment.objects.filter(
+        student=student,
+        enrollment_status='Active'
+    ).count()
+    
+    profile_data = {
+        'id': student.id,
+        'admission_no': student.admission_no,
+        'first_name': student.first_name,
+        'middle_name': student.middle_name,
+        'last_name': student.last_name,
+        'full_name': student.full_name,
+        'date_of_birth': student.date_of_birth,
+        'gender': student.gender,
+        'nationality': student.nationality,
+        'religion': student.religion,
+        'blood_group': student.blood_group,
+        'address': student.address,
+        'city': student.city,
+        'country': student.country,
+        'phone': student.phone,
+        'email': student.email,
+        'current_class': {
+            'id': student.current_class.id if student.current_class else None,
+            'name': student.current_class.class_name if student.current_class else None,
+            'code': student.current_class.class_code if student.current_class else None,
+        } if student.current_class else None,
+        'stream': student.stream,
+        'roll_number': student.roll_number,
+        'admission_date': student.admission_date,
+        'admission_type': student.admission_type,
+        'status': student.status,
+        'expected_graduation_date': student.expected_graduation_date,
+        'guardian': {
+            'name': student.guardian_name,
+            'relation': student.guardian_relation,
+            'phone': student.guardian_phone,
+            'email': student.guardian_email,
+            'address': student.guardian_address,
+        },
+        'father': {
+            'name': student.father_name,
+            'phone': student.father_phone,
+            'email': student.father_email,
+            'occupation': student.father_occupation,
+        } if student.father_name else None,
+        'mother': {
+            'name': student.mother_name,
+            'phone': student.mother_phone,
+            'email': student.mother_email,
+            'occupation': student.mother_occupation,
+        } if student.mother_name else None,
+        'emergency': {
+            'contact': student.emergency_contact,
+            'name': student.emergency_contact_name,
+        },
+        'medical': {
+            'conditions': student.medical_conditions,
+            'allergies': student.allergies,
+            'medication': student.medication,
+        },
+        'academic_history': list(academic_history.values('academic_year', 'class_id__class_name', 'stream', 'promoted')),
+        'current_balance': student.current_balance,
+        'enrollment_count': current_enrollment,
+        'created_at': student.created_at,
+        'updated_at': student.updated_at,
+    }
+    
+    return Response({
+        'success': True,
+        'data': profile_data
+    })
+# ==================== STUDENT SETTINGS VIEWS ====================
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_student_settings(request):
+    """
+    Retrieves the authenticated student's settings.
+    """
+    if not hasattr(request.user, 'student_profile'):
+        return Response({"error": "No student profile found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    student = request.user.student_profile
+    user = request.user
+    
+    settings_data = {
+        'user': {
+            'id': user.id,
+            'email': user.email,
+            'phone': user.phone,
+            'role': user.role,
+        },
+        'profile': {
+            'admission_no': student.admission_no,
+            'full_name': student.full_name,
+            'status': student.status,
+        },
+        'preferences': {
+            'theme': request.session.get('theme', 'light'),
+            'notifications_enabled': request.session.get('notifications_enabled', True),
+            'email_notifications': request.session.get('email_notifications', True),
+            'sms_notifications': request.session.get('sms_notifications', False),
+        },
+        'security': {
+            'mfa_enabled': user.mfa_enabled if hasattr(user, 'mfa_enabled') else False,
+            'last_password_change': user.last_password_change if hasattr(user, 'last_password_change') else None,
+        }
+    }
+    
+    return Response({
+        'success': True,
+        'data': settings_data
+    })
+
+@api_view(['PUT'])
+@permission_classes([permissions.IsAuthenticated])
+def update_student_settings(request):
+    """
+    Updates the authenticated student's settings.
+    """
+    if not hasattr(request.user, 'student_profile'):
+        return Response({"error": "No student profile found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    user = request.user
+    
+    # Update preferences
+    preferences = request.data.get('preferences', {})
+    if 'theme' in preferences:
+        request.session['theme'] = preferences['theme']
+    if 'notifications_enabled' in preferences:
+        request.session['notifications_enabled'] = preferences['notifications_enabled']
+    if 'email_notifications' in preferences:
+        request.session['email_notifications'] = preferences['email_notifications']
+    if 'sms_notifications' in preferences:
+        request.session['sms_notifications'] = preferences['sms_notifications']
+    
+    # Update user profile
+    user_data = request.data.get('user', {})
+    if 'email' in user_data:
+        user.email = user_data['email']
+        user.save()
+    if 'phone' in user_data:
+        user.phone = user_data['phone']
+        user.save()
+    
+    return Response({
+        'success': True,
+        'message': 'Settings updated successfully'
+    })
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def change_student_password(request):
+    """
+    Changes the authenticated student's password.
+    """
+    # Get the user directly from request.user
+    user = request.user
+    
+    # Check if user has a student profile
+    if not hasattr(user, 'student_profile'):
+        return Response({"error": "No student profile found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    user = request.user
+    current_password = request.data.get('current_password')
+    new_password = request.data.get('new_password')
+    confirm_password = request.data.get('confirm_password')
+    
+    if not current_password or not new_password or not confirm_password:
+        return Response({
+            "error": "All fields are required"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if new_password != confirm_password:
+        return Response({
+            "error": "New passwords do not match"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if len(new_password) < 8:
+        return Response({
+            "error": "Password must be at least 8 characters long"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if not user.check_password(current_password):
+        return Response({
+            "error": "Current password is incorrect"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    user.set_password(new_password)
+    user.last_password_change = timezone.now()
+    user.save()
+    
+    # Log password change
+    AuditLog.objects.create(
+        event_type='USER_UPDATE',
+        user=user,
+        username=user.username,
+        table_name='auth_user',
+        record_id=user.id,
+        operation='UPDATE',
+        changed_fields=['password'],
+        ip_address=request.META.get('REMOTE_ADDR'),
+        endpoint=request.path,
+        http_method=request.method,
+        request_id=uuid.uuid4()
+    )
+    
+    return Response({
+        'success': True,
+        'message': 'Password changed successfully'
+    })
+    
+# ==================== PASSWORD RESET REQUEST VIEWS ====================
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def request_password_reset(request):
+    """
+    Student requests a password reset by entering admission number.
+    """
+    admission_no = request.data.get('admission_no')
+    
+    if not admission_no:
+        return Response({
+            "success": False,
+            "error": "Admission number is required"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        student = Student.objects.get(admission_no=admission_no, status='Active')
+    except Student.DoesNotExist:
+        # Don't reveal if student exists or not
+        return Response({
+            "success": True,
+            "message": "If your admission number is valid, a reset request has been sent to the administrator."
+        })
+    
+    # Check if there's already a pending request
+    existing_request = PasswordResetRequest.objects.filter(
+        student=student,
+        status='pending'
+    ).first()
+    
+    if existing_request:
+        return Response({
+            "success": True,
+            "message": "You already have a pending reset request. Please wait for the administrator to process it."
+        })
+    
+    # Create reset request
+    reset_request = PasswordResetRequest.objects.create(
+        student=student,
+        admission_no=admission_no
+    )
+    
+    # Log the request
+    AuditLog.objects.create(
+        event_type='PASSWORD_RESET_REQUEST',
+        username=admission_no,
+        table_name='Student',
+        record_id=student.id,
+        operation='INSERT',
+        new_values={'admission_no': admission_no, 'status': 'pending'},
+        ip_address=request.META.get('REMOTE_ADDR'),
+        endpoint=request.path,
+        http_method=request.method,
+        request_id=uuid.uuid4()
+    )
+    
+    # Notify admin (you can add email notification here)
+    
+    return Response({
+        "success": True,
+        "message": "Your password reset request has been sent to the administrator. You will be notified when it's processed."
+    })
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def check_reset_request_status(request, admission_no):
+    """
+    Check the status of a password reset request.
+    """
+    try:
+        student = Student.objects.get(admission_no=admission_no)
+        reset_request = PasswordResetRequest.objects.filter(
+            student=student
+        ).order_by('-requested_at').first()
+        
+        if not reset_request:
+            return Response({
+                "success": True,
+                "status": "none",
+                "message": "No reset request found"
+            })
+        
+        return Response({
+            "success": True,
+            "status": reset_request.status,
+            "requested_at": reset_request.requested_at,
+            "reviewed_at": reset_request.reviewed_at,
+            "message": f"Your request is {reset_request.status}"
+        })
+    except Student.DoesNotExist:
+        return Response({
+            "success": False,
+            "error": "Student not found"
+        }, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def force_change_password(request):
+    """
+    Student changes their password after admin reset.
+    """
+    user = request.user
+    
+    # Check if user has a student profile
+    if not hasattr(user, 'student_profile'):
+        return Response({
+            "success": False,
+            "error": "Student profile not found"
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    student = user.student_profile
+    
+    # Check if there's an approved reset request
+    reset_request = PasswordResetRequest.objects.filter(
+        student=student,
+        status='approved'
+    ).order_by('-requested_at').first()
+    
+    if not reset_request:
+        return Response({
+            "success": False,
+            "error": "No pending password reset request found. Please contact the administrator."
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    new_password = request.data.get('new_password')
+    confirm_password = request.data.get('confirm_password')
+    
+    if not new_password or not confirm_password:
+        return Response({
+            "success": False,
+            "error": "All fields are required"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if new_password != confirm_password:
+        return Response({
+            "success": False,
+            "error": "Passwords do not match"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if len(new_password) < 8:
+        return Response({
+            "success": False,
+            "error": "Password must be at least 8 characters"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Update password
+    user.set_password(new_password)
+    user.last_password_change = timezone.now()
+    user.save()
+    
+    # Mark request as completed
+    reset_request.mark_completed()
+    
+    # Log the action
+    AuditLog.objects.create(
+        event_type='PASSWORD_CHANGE',
+        user=user,
+        username=user.username,
+        table_name='auth_user',
+        record_id=user.id,
+        operation='UPDATE',
+        changed_fields=['password'],
+        ip_address=request.META.get('REMOTE_ADDR'),
+        endpoint=request.path,
+        http_method=request.method,
+        request_id=uuid.uuid4()
+    )
+    
+    return Response({
+        "success": True,
+        "message": "Password changed successfully. Please login with your new password."
+    })
+    
+    
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_student_activities(request):
+    if not hasattr(request.user, 'student_profile'):
+        return Response({"error": "No student profile found"}, status=404)
+    
+    student = request.user.student_profile
+    
+    activities = []
+    
+    # 1. Assignment submissions
+    submissions = StudentSubmission.objects.filter(
+        student=student,
+        status='Submitted'
+    ).select_related('assignment', 'assignment__module__course').order_by('-submitted_at')[:10]
+    
+    for sub in submissions:
+        activities.append({
+            'type': 'assignment_submission',
+            'title': f'Submitted assignment: {sub.assignment.content_title}',
+            'description': f'Course: {sub.assignment.module.course.course_code}',
+            'timestamp': sub.submitted_at,
+            'icon': '📝',
+        })
+    
+    # 2. Fee payments
+    payments = FeeTransaction.objects.filter(
+        student=student,
+        status='Completed'
+    ).order_by('-payment_date')[:10]
+    
+    for pay in payments:
+        activities.append({
+            'type': 'fee_payment',
+            'title': f'Fee payment of KSh {pay.amount_kes}',
+            'description': f'Transaction: {pay.transaction_no}',
+            'timestamp': pay.payment_date,
+            'icon': '💰',
+        })
+    
+    # 3. Attendance
+    attendances = StudentAttendance.objects.filter(
+        student=student
+    ).select_related('session').order_by('-session__session_date', '-session__start_time')[:10]
+    
+    for att in attendances:
+        activities.append({
+            'type': 'attendance',
+            'title': f'Attendance marked: {att.attendance_status}',
+            'description': f'Date: {att.session.session_date}',
+            'timestamp': att.recorded_at or att.session.session_date,
+            'icon': '📅',
+        })
+    
+    # 4. Invoices (when generated)
+    invoices = StudentFeeInvoice.objects.filter(
+        student=student
+    ).order_by('-created_at')[:10]
+    
+    for inv in invoices:
+        activities.append({
+            'type': 'invoice_generated',
+            'title': f'Invoice generated: {inv.invoice_no}',
+            'description': f'Amount: KSh {inv.total_amount}',
+            'timestamp': inv.created_at,
+            'icon': '📄',
+        })
+    
+    # Sort all by timestamp descending and limit
+    activities.sort(key=lambda x: x['timestamp'], reverse=True)
+    activities = activities[:20]
+    
+    return Response({
+        'success': True,
+        'data': activities
+    })
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_student_notifications(request):
+    if not hasattr(request.user, 'student_profile'):
+        return Response({"error": "No student profile found"}, status=404)
+    
+    user = request.user
+    student = user.student_profile
+    
+    # Get notifications for this student
+    notifications = Notification.objects.filter(
+        models.Q(recipient_type='All') |
+        models.Q(recipient_type='Student', recipient_id=student.id) |
+        models.Q(recipient_type='User', recipient_id=user.id) |
+        models.Q(recipient_type='Class', recipient_id=student.current_class_id)
+    ).order_by('-sent_at')[:20]
+    
+    data = []
+    for n in notifications:
+        data.append({
+            'id': n.id,
+            'title': n.title,
+            'message': n.message,
+            'type': n.notification_type,
+            'priority': n.priority,
+            'status': n.status,
+            'sent_at': n.sent_at,
+            'read_at': n.read_at,
+        })
+    
+    return Response({
+        'success': True,
+        'data': data
+    })
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def mark_notification_read(request, notification_id):
+    try:
+        notification = Notification.objects.get(id=notification_id)
+        notification.status = 'Read'
+        notification.read_at = timezone.now()
+        notification.save()
+        return Response({'success': True})
+    except Notification.DoesNotExist:
+        return Response({'error': 'Notification not found'}, status=404)
