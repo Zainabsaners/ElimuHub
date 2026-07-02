@@ -40,4 +40,4 @@ webencodings==0.5.1
 whitenoise==6.11.0
 xlrd==2.0.2
 zopfli==0.4.3
-django-q2==1.0.4
+django-q2==1.10.0
