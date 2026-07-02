@@ -5102,3 +5102,727 @@ def mark_notification_read(request, notification_id):
         return Response({'success': True})
     except Notification.DoesNotExist:
         return Response({'error': 'Notification not found'}, status=404)
+    
+# Add to views.py
+
+# ==================== TEACHER PORTAL VIEWS ====================
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_teacher_dashboard(request):
+    if request.user.role != 'teacher':
+        return Response({"error": "Access denied"}, status=403)
+    
+    teacher = request.user
+    
+    # Get classes where teacher is class_teacher or has subject allocation
+    class_teacher_classes = Class.objects.filter(class_teacher=teacher, is_active=True)
+    allocated_class_ids = ClassSubjectAllocation.objects.filter(
+        teacher=teacher,
+        is_active=True
+    ).values_list('class_id', flat=True).distinct()
+    
+    class_ids = set(class_teacher_classes.values_list('id', flat=True)) | set(allocated_class_ids)
+    classes = Class.objects.filter(id__in=class_ids, is_active=True)
+    
+    total_students = 0
+    class_stats = []
+    for cls in classes:
+        student_count = Student.objects.filter(
+            current_class=cls,
+            status='Active'
+        ).count()
+        total_students += student_count
+        
+        # Get today's attendance
+        today = timezone.now().date()
+        attendance_count = StudentAttendance.objects.filter(
+            session__class_id=cls,
+            session__session_date=today,
+            attendance_status='Present'
+        ).count()
+        
+        class_stats.append({
+            'class_id': cls.id,
+            'class_name': cls.class_name,
+            'class_code': cls.class_code,
+            'student_count': student_count,
+            'today_attendance': attendance_count,
+            'subjects': list(ClassSubjectAllocation.objects.filter(
+                class_id=cls,
+                teacher=teacher,
+                is_active=True
+            ).values_list('subject__area_name', flat=True))
+        })
+    
+    # Get recent activities (as before)
+    recent_activities = []
+    
+    # Recent assignments created
+    assignments = LearningContent.objects.filter(
+        created_by=teacher,
+        content_type='Assignment'
+    ).order_by('-created_at')[:5]
+    
+    for a in assignments:
+        recent_activities.append({
+            'type': 'assignment',
+            'title': f'Created assignment: {a.content_title}',
+            'time': a.created_at
+        })
+    
+    # Recent attendance marked
+    attendances = StudentAttendance.objects.filter(
+        recorded_by=teacher
+    ).order_by('-recorded_at')[:5]
+    
+    for a in attendances:
+        recent_activities.append({
+            'type': 'attendance',
+            'title': f'Marked attendance for {a.student.full_name}',
+            'time': a.recorded_at
+        })
+    
+    # Sort by time
+    recent_activities.sort(key=lambda x: x['time'], reverse=True)
+    recent_activities = recent_activities[:10]
+    
+    return Response({
+        'success': True,
+        'data': {
+            'teacher': {
+                'name': f"{teacher.first_name} {teacher.last_name}",
+                'email': teacher.email,
+            },
+            'stats': {
+                'total_classes': len(classes),
+                'total_students': total_students,
+                'total_subjects': ClassSubjectAllocation.objects.filter(teacher=teacher, is_active=True).values_list('subject', flat=True).distinct().count(),
+            },
+            'class_stats': class_stats,
+            'recent_activities': recent_activities,
+        }
+    })
+    
+# In views.py
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_teacher_classes(request):
+    if request.user.role != 'teacher':
+        return Response({"error": "Access denied"}, status=403)
+    
+    teacher = request.user
+    
+    # Classes where teacher is class_teacher
+    class_teacher_classes = Class.objects.filter(class_teacher=teacher, is_active=True)
+    
+    # Classes from subject allocations
+    allocated_class_ids = ClassSubjectAllocation.objects.filter(
+        teacher=teacher,
+        is_active=True
+    ).values_list('class_id', flat=True).distinct()
+    
+    class_ids = set(class_teacher_classes.values_list('id', flat=True)) | set(allocated_class_ids)
+    classes = Class.objects.filter(id__in=class_ids, is_active=True)
+    
+    class_data = []
+    for cls in classes:
+        subject_names = ClassSubjectAllocation.objects.filter(
+            class_id=cls,
+            teacher=teacher,
+            is_active=True
+        ).values_list('subject__area_name', flat=True)
+        
+        class_data.append({
+            'id': cls.id,
+            'name': cls.class_name,
+            'code': cls.class_code,
+            'level': cls.numeric_level,
+            'capacity': cls.capacity,
+            'student_count': Student.objects.filter(
+                current_class=cls,
+                status='Active'
+            ).count(),
+            'subjects': list(subject_names),
+            'is_class_teacher': cls.class_teacher == teacher,
+        })
+    
+    return Response({
+        'success': True,
+        'data': class_data
+    })
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_teacher_class_students(request, class_id):
+    """
+    Retrieves students in a specific class.
+    """
+    if request.user.role != 'teacher':
+        return Response({"error": "Access denied"}, status=403)
+    
+    teacher = request.user
+    
+    # Check if teacher is assigned to this class
+    # Either as class_teacher or via subject allocation
+    try:
+        cls = Class.objects.get(id=class_id, is_active=True)
+    except Class.DoesNotExist:
+        return Response({"error": "Class not found"}, status=404)
+    
+    # Check assignment
+    is_class_teacher = cls.class_teacher == teacher
+    has_subject_allocation = ClassSubjectAllocation.objects.filter(
+        class_id=cls,
+        teacher=teacher,
+        is_active=True
+    ).exists()
+    
+    if not (is_class_teacher or has_subject_allocation):
+        return Response({"error": "You are not assigned to this class"}, status=403)
+    
+    students = Student.objects.filter(
+        current_class_id=class_id,
+        status='Active'
+    ).select_related('user')
+    
+    student_data = []
+    for s in students:
+        # Get latest attendance
+        latest_attendance = StudentAttendance.objects.filter(
+            student=s
+        ).order_by('-session__session_date').first()
+        
+        # Get latest grade (if any)
+        latest_grade = TermlySummary.objects.filter(
+            student=s
+        ).order_by('-created_at').first()
+        
+        student_data.append({
+            'id': s.id,
+            'admission_no': s.admission_no,
+            'full_name': s.full_name,
+            'email': s.email,
+            'phone': s.phone,
+            'gender': s.gender,
+            'latest_attendance': latest_attendance.attendance_status if latest_attendance else 'N/A',
+            'latest_grade': latest_grade.final_rating if latest_grade else 'N/A',
+        })
+    
+    return Response({
+        'success': True,
+        'data': student_data
+    })
+# ==================== TEACHER ATTENDANCE ====================
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_class_sessions(request, class_id):
+    """Get attendance sessions for a class on a given date or recent."""
+    if request.user.role != 'teacher':
+        return Response({"error": "Access denied"}, status=403)
+    
+    teacher = request.user
+    
+    # Check if teacher is assigned to this class
+    try:
+        cls = Class.objects.get(id=class_id, is_active=True)
+    except Class.DoesNotExist:
+        return Response({"error": "Class not found"}, status=404)
+    
+    # Check both: class_teacher OR subject allocation
+    is_class_teacher = cls.class_teacher == teacher
+    has_subject_allocation = ClassSubjectAllocation.objects.filter(
+        teacher=teacher,
+        class_id=class_id,
+        is_active=True
+    ).exists()
+    
+    if not (is_class_teacher or has_subject_allocation):
+        return Response({"error": "You are not assigned to this class"}, status=403)
+    
+    # Default: today
+    date_str = request.query_params.get('date')
+    if date_str:
+        date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    else:
+        date = timezone.now().date()
+    
+    sessions = AttendanceSession.objects.filter(
+        class_id=class_id,
+        session_date=date,
+        is_active=True
+    ).select_related('subject')
+    
+    data = [{
+        'id': s.id,
+        'subject': s.subject.area_name if s.subject else 'General',
+        'session_type': s.session_type,
+        'start_time': s.start_time,
+        'end_time': s.end_time,
+        'students_present': StudentAttendance.objects.filter(session=s, attendance_status='Present').count(),
+        'total_students': Student.objects.filter(current_class_id=class_id, status='Active').count(),
+    } for s in sessions]
+    
+    return Response({'success': True, 'data': data})
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def mark_attendance(request):
+    """Mark attendance for a session."""
+    if request.user.role != 'teacher':
+        return Response({"error": "Access denied"}, status=403)
+    
+    session_id = request.data.get('session_id')
+    records = request.data.get('records', [])  # list of {student_id, status}
+    
+    try:
+        session = AttendanceSession.objects.get(id=session_id)
+        # Check teacher assigned
+        if not ClassSubjectAllocation.objects.filter(teacher=request.user, class_id=session.class_id).exists():
+            return Response({"error": "Not assigned"}, status=403)
+        
+        for rec in records:
+            student = Student.objects.get(id=rec['student_id'])
+            StudentAttendance.objects.update_or_create(
+                session=session,
+                student=student,
+                defaults={
+                    'attendance_status': rec['status'],
+                    'recorded_by': request.user,
+                }
+            )
+        return Response({"success": True, "message": "Attendance saved"})
+    except (AttendanceSession.DoesNotExist, Student.DoesNotExist) as e:
+        return Response({"error": str(e)}, status=404)
+    
+# ==================== TEACHER GRADES ====================
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_class_grades(request, class_id):
+    """Get grades for all students in a class."""
+    if request.user.role != 'teacher':
+        return Response({"error": "Access denied"}, status=403)
+    
+    teacher = request.user
+    
+    try:
+        cls = Class.objects.get(id=class_id, is_active=True)
+    except Class.DoesNotExist:
+        return Response({"error": "Class not found"}, status=404)
+    
+    # Check both: class_teacher OR subject allocation
+    is_class_teacher = cls.class_teacher == teacher
+    has_subject_allocation = ClassSubjectAllocation.objects.filter(
+        teacher=teacher,
+        class_id=class_id,
+        is_active=True
+    ).exists()
+    
+    if not (is_class_teacher or has_subject_allocation):
+        return Response({"error": "You are not assigned to this class"}, status=403)
+    
+    students = Student.objects.filter(current_class_id=class_id, status='Active')
+    term = Term.objects.filter(is_current=True).first()
+    data = []
+    for s in students:
+        grade = TermlySummary.objects.filter(student=s, term=term).first()
+        data.append({
+            'student_id': s.id,
+            'name': s.full_name,
+            'admission_no': s.admission_no,
+            'rating': grade.final_rating if grade else 'N/A',
+            'internal_value': grade.final_internal_value if grade else None,
+        })
+    return Response({'success': True, 'data': data})
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def enter_grade(request):
+    if request.user.role != 'teacher':
+        return Response({"error": "Access denied"}, status=403)
+    
+    student_id = request.data.get('student_id')
+    rating = request.data.get('rating')
+    term_id = request.data.get('term_id')
+    
+    try:
+        student = Student.objects.get(id=student_id)
+        term = Term.objects.get(id=term_id) if term_id else Term.objects.filter(is_current=True).first()
+        if not term:
+            return Response({"error": "No active term"}, status=400)
+        
+        # Check teacher assignment
+        cls = student.current_class
+        if not cls:
+            return Response({"error": "Student has no class"}, status=400)
+        is_class_teacher = cls.class_teacher == request.user
+        has_subject_allocation = ClassSubjectAllocation.objects.filter(
+            teacher=request.user,
+            class_id=cls.id,
+            is_active=True
+        ).exists()
+        if not (is_class_teacher or has_subject_allocation):
+            return Response({"error": "You are not assigned to this student's class"}, status=403)
+        
+        # Get or create grade (simplified)
+        learning_area = LearningArea.objects.first()
+        if not learning_area:
+            return Response({"error": "No learning area"}, status=400)
+        
+        summary, created = TermlySummary.objects.get_or_create(
+            student=student,
+            term=term,
+            learning_area=learning_area,
+            defaults={'final_rating': rating}
+        )
+        if not created:
+            summary.final_rating = rating
+            summary.save()
+        
+        return Response({"success": True, "message": "Grade saved"})
+    except (Student.DoesNotExist, Term.DoesNotExist) as e:
+        return Response({"error": str(e)}, status=404)
+    
+# ==================== TEACHER ASSIGNMENTS ====================
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_teacher_assignments(request):
+    """Get assignments created by the teacher."""
+    if request.user.role != 'teacher':
+        return Response({"error": "Access denied"}, status=403)
+    
+    assignments = LearningContent.objects.filter(
+        created_by=request.user,
+        content_type='Assignment'
+    ).select_related('module__course').order_by('-created_at')
+    
+    data = [{
+        'id': a.id,
+        'title': a.content_title,
+        'description': a.description,
+        'course': a.module.course.course_title,
+        'course_code': a.module.course.course_code,
+        'publish_date': a.publish_date,
+        'is_published': a.is_published,
+        'submissions_count': a.submissions.count(),
+    } for a in assignments]
+    return Response({'success': True, 'data': data})
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def create_assignment(request):
+    """Create a new assignment."""
+    if request.user.role != 'teacher':
+        return Response({"error": "Access denied"}, status=403)
+    
+    # Expect: course_id, title, description, due_date?, is_published?
+    course_id = request.data.get('course_id')
+    title = request.data.get('title')
+    description = request.data.get('description', '')
+    due_date = request.data.get('due_date')
+    
+    if not course_id or not title:
+        return Response({"error": "Course and title are required"}, status=400)
+    
+    try:
+        course = Course.objects.get(id=course_id)
+        # Create a module if not exists, or reuse a default module
+        module, _ = CourseModule.objects.get_or_create(
+            course=course,
+            module_order=1,
+            defaults={'module_title': 'Assignments'}
+        )
+        assignment = LearningContent.objects.create(
+            module=module,
+            content_title=title,
+            description=description,
+            content_type='Assignment',
+            created_by=request.user,
+            is_published=True,
+            publish_date=timezone.now(),
+        )
+        return Response({"success": True, "message": "Assignment created", "id": assignment.id})
+    except Course.DoesNotExist:
+        return Response({"error": "Course not found"}, status=404)
+    
+# ==================== TEACHER SUBMISSIONS ====================
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_assignment_submissions(request, assignment_id):
+    """Get submissions for a specific assignment."""
+    if request.user.role != 'teacher':
+        return Response({"error": "Access denied"}, status=403)
+    
+    try:
+        assignment = LearningContent.objects.get(id=assignment_id, content_type='Assignment')
+        # Check if teacher owns this assignment
+        if assignment.created_by != request.user:
+            return Response({"error": "You don't own this assignment"}, status=403)
+        
+        submissions = StudentSubmission.objects.filter(
+            assignment=assignment
+        ).select_related('student', 'student__user').order_by('submitted_at')
+        
+        data = [{
+            'submission_id': s.id,
+            'student': s.student.full_name,
+            'admission_no': s.student.admission_no,
+            'status': s.status,
+            'submitted_at': s.submitted_at,
+            'grade': s.grade,
+            'feedback': s.feedback,
+        } for s in submissions]
+        return Response({'success': True, 'data': data})
+    except LearningContent.DoesNotExist:
+        return Response({"error": "Assignment not found"}, status=404)
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def grade_submission(request):
+    """Grade a submission."""
+    if request.user.role != 'teacher':
+        return Response({"error": "Access denied"}, status=403)
+    
+    submission_id = request.data.get('submission_id')
+    grade = request.data.get('grade')
+    feedback = request.data.get('feedback', '')
+    
+    try:
+        submission = StudentSubmission.objects.get(id=submission_id)
+        # Check teacher owns the assignment
+        if submission.assignment.created_by != request.user:
+            return Response({"error": "Not your assignment"}, status=403)
+        
+        submission.grade = grade
+        submission.feedback = feedback
+        submission.status = 'Graded'
+        submission.graded_by = request.user
+        submission.graded_at = timezone.now()
+        submission.save()
+        return Response({"success": True, "message": "Grade saved"})
+    except StudentSubmission.DoesNotExist:
+        return Response({"error": "Submission not found"}, status=404)
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_teacher_timetable(request):
+    """
+    Returns the timetable for the teacher's assigned classes.
+    """
+    if request.user.role != 'teacher':
+        return Response({"error": "Access denied"}, status=403)
+    
+    teacher = request.user
+    current_term = Term.objects.filter(is_current=True).first()
+    if not current_term:
+        return Response({"error": "No current term found"}, status=404)
+    
+    # Get classes where teacher is assigned (as class_teacher or via subject allocation)
+    class_teacher_classes = Class.objects.filter(class_teacher=teacher, is_active=True)
+    allocated_class_ids = ClassSubjectAllocation.objects.filter(
+        teacher=teacher,
+        is_active=True
+    ).values_list('class_id', flat=True).distinct()
+    class_ids = set(class_teacher_classes.values_list('id', flat=True)) | set(allocated_class_ids)
+    
+    if not class_ids:
+        return Response({"data": [], "message": "No classes assigned"})
+    
+    # Get timetable entries for these classes for the current term
+    timetable_entries = Timetable.objects.filter(
+        class_id__in=class_ids,
+        academic_year=current_term.academic_year.year_name,
+        term=current_term.term,
+        is_active=True
+    ).select_related('class_id', 'subject', 'teacher')
+    
+    # Group by day
+    day_names = {1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday', 7: 'Sunday'}
+    timetable_by_day = {}
+    for entry in timetable_entries:
+        day_name = day_names.get(entry.day_of_week, f'Day {entry.day_of_week}')
+        if day_name not in timetable_by_day:
+            timetable_by_day[day_name] = []
+        timetable_by_day[day_name].append({
+            'id': entry.id,
+            'class_name': entry.class_id.class_name,
+            'class_code': entry.class_id.class_code,
+            'period': entry.period,
+            'subject': entry.subject.area_name if entry.subject else 'N/A',
+            'subject_code': entry.subject.area_code if entry.subject else 'N/A',
+            'room': entry.room or 'N/A',
+            'teacher': f"{entry.teacher.first_name} {entry.teacher.last_name}".strip() if entry.teacher else 'TBA',
+            'day_of_week': entry.day_of_week,
+        })
+    
+    # Format for frontend: list of days in order
+    days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    formatted_timetable = []
+    for day in days_order:
+        if day in timetable_by_day:
+            # Sort by period
+            entries = sorted(timetable_by_day[day], key=lambda x: x['period'])
+            formatted_timetable.append({
+                'day': day,
+                'entries': entries,
+                'has_classes': True
+            })
+        else:
+            formatted_timetable.append({
+                'day': day,
+                'entries': [],
+                'has_classes': False
+            })
+    
+    return Response({
+        'success': True,
+        'data': formatted_timetable,
+        'max_periods': 8,  # You can compute dynamically if needed
+    })
+@api_view(['GET', 'PUT'])
+@permission_classes([permissions.IsAuthenticated])
+def teacher_profile(request):
+    """
+    Get or update teacher profile.
+    """
+    if request.user.role != 'teacher':
+        return Response({"error": "Access denied"}, status=403)
+    
+    user = request.user
+    
+    if request.method == 'GET':
+        # Return profile data
+        data = {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'phone': user.phone,
+            'role': user.role,
+            'department': user.department,
+        }
+        # If Staff model is linked
+        if hasattr(user, 'staff_profile'):
+            staff = user.staff_profile
+            data['staff_id'] = staff.staff_id
+            data['designation'] = staff.designation
+            data['employment_type'] = staff.employment_type
+            data['department'] = staff.department
+        return Response({'success': True, 'data': data})
+    
+    elif request.method == 'PUT':
+        # Update profile
+        data = request.data
+        user.first_name = data.get('first_name', user.first_name)
+        user.last_name = data.get('last_name', user.last_name)
+        user.email = data.get('email', user.email)
+        user.phone = data.get('phone', user.phone)
+        user.department = data.get('department', user.department)
+        user.save()
+        
+        # Update staff if linked
+        if hasattr(user, 'staff_profile'):
+            staff = user.staff_profile
+            staff.department = data.get('department', staff.department)
+            staff.save()
+        
+        return Response({
+            'success': True,
+            'message': 'Profile updated successfully',
+            'data': {
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'email': user.email,
+                'phone': user.phone,
+                'department': user.department,
+            }
+        })
+@api_view(['PUT'])
+@permission_classes([permissions.IsAuthenticated])
+def update_teacher_profile(request):
+    if request.user.role != 'teacher':
+        return Response({"error": "Access denied"}, status=403)
+    
+    user = request.user
+    data = request.data
+    
+    # Update user fields
+    user.first_name = data.get('first_name', user.first_name)
+    user.last_name = data.get('last_name', user.last_name)
+    user.email = data.get('email', user.email)
+    user.phone = data.get('phone', user.phone)
+    
+    # If you have a Staff model linked to user, you can update it too
+    if hasattr(user, 'staff_profile'):
+        staff = user.staff_profile
+        staff.department = data.get('department', staff.department)
+        staff.save()
+    
+    user.save()
+    
+    return Response({
+        'success': True,
+        'message': 'Profile updated successfully',
+        'data': {
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'email': user.email,
+            'phone': user.phone,
+            'department': user.staff_profile.department if hasattr(user, 'staff_profile') else None,
+        }
+    })
+    
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def change_password(request):
+    """
+    Change password for any authenticated user (student, teacher, staff).
+    """
+    user = request.user
+    current_password = request.data.get('current_password')
+    new_password = request.data.get('new_password')
+    confirm_password = request.data.get('confirm_password')
+    
+    if not current_password or not new_password or not confirm_password:
+        return Response({
+            "error": "All fields are required"
+        }, status=400)
+    
+    if new_password != confirm_password:
+        return Response({
+            "error": "New passwords do not match"
+        }, status=400)
+    
+    if len(new_password) < 8:
+        return Response({
+            "error": "Password must be at least 8 characters long"
+        }, status=400)
+    
+    if not user.check_password(current_password):
+        return Response({
+            "error": "Current password is incorrect"
+        }, status=400)
+    
+    user.set_password(new_password)
+    user.last_password_change = timezone.now()
+    user.save()
+    
+    # Log password change
+    AuditLog.objects.create(
+        event_type='USER_UPDATE',
+        user=user,
+        username=user.username,
+        table_name='auth_user',
+        record_id=user.id,
+        operation='UPDATE',
+        changed_fields=['password'],
+        ip_address=request.META.get('REMOTE_ADDR'),
+        endpoint=request.path,
+        http_method=request.method,
+        request_id=uuid.uuid4()
+    )
+    
+    return Response({
+        'success': True,
+        'message': 'Password changed successfully'
+    })

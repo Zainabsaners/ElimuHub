@@ -31,7 +31,21 @@ import Profile from "./components/StudentPortal/profile";
 import Settings from "./components/FinancePortal/Settings";
 import Activities from "./components/StudentPortal/Activities/Activities";
 import Notifications from "./components/StudentPortal/Communication/notification";
-
+import TeacherSidebar from "./components/sidebars/TeacherSidebar";
+import TeacherDashboard from "./components/TeacherPortal/TeacherDashboard";
+import TeacherClasses from "./components/TeacherPortal/TeacherClasses";
+import TeacherClassStudents from "./components/TeacherPortal/TeacherClassStudents";
+import MarkAttendance from "./components/TeacherPortal/MarkAttendance";
+import GradeEntry from "./components/TeacherPortal/GradeEntry";
+import TeacherAssignments from "./components/TeacherPortal/TeacherAssignments";
+import CreateAssignment from "./components/TeacherPortal/CreateAssignments";
+import Submissions from "./components/TeacherPortal/Submission";
+import TeacherTimetable from "./components/TeacherPortal/TeacherTimetable";
+import TeacherProfile from "./components/TeacherPortal/TeacherProfile";
+import TeacherSettings from "./components/TeacherPortal/TeacherSettings";
+import TeacherClassDetail from './components/TeacherPortal/TeacherClassDetail';
+import TeacherAttendance from "./components/TeacherPortal/TeacherAttendance";
+import TeacherGrades from "./components/TeacherPortal/TeacherGrades";
 const Layout = () => {
     const { user, loading } = useAuth();
     const { theme } = useTheme();
@@ -61,6 +75,7 @@ const Layout = () => {
             case 'system_admin': return <SysAdminSidebar />;
             case 'hr_manager': return <HrSidebar />;
             case 'student': return <StudentSidebar />; 
+            case 'teacher': return <TeacherSidebar/>;
             default: return <div className="p-4 text-red-500">Access Denied: No portal assigned</div>;
         }
     };
@@ -176,7 +191,7 @@ function App() {
                 </ProtectedRoute>
               } />
               <Route path="/force-password-change" element={
-                <ProtectedRoute allowedRoles={['student']}>
+                <ProtectedRoute allowedRoles={['student', 'teacher']}>
                   <ForcePasswordChange />
                 </ProtectedRoute>
               } />
@@ -190,6 +205,77 @@ function App() {
                   <Notifications />
                 </ProtectedRoute>
               } />
+               <Route path="/teacher" element={
+                <ProtectedRoute allowedRoles={['teacher']}>
+                  <TeacherDashboard />
+                  </ProtectedRoute>
+              } />
+                <Route path="/teacher/classes" element={
+                  <ProtectedRoute allowedRoles={['teacher']}>
+                    <TeacherClasses />
+                    </ProtectedRoute>
+              } />
+              <Route path="/teacher/classes/:classId/students" element={
+                <ProtectedRoute allowedRoles={['teacher']}>
+                  <TeacherClassStudents />
+                  </ProtectedRoute>
+              } />
+              <Route path="/teacher/classes/:classId/attendance" element={
+                <ProtectedRoute allowedRoles={['teacher']}>
+                  <MarkAttendance />
+                  </ProtectedRoute>
+              } />
+              <Route path="/teacher/classes/:classId/grades" element={
+                <ProtectedRoute allowedRoles={['teacher']}>
+                  <GradeEntry />
+                  </ProtectedRoute>
+              } />
+              <Route path="/teacher/assignments" element={
+                <ProtectedRoute allowedRoles={['teacher']}>
+                  <TeacherAssignments />
+                  </ProtectedRoute>
+              } />
+              <Route path="/teacher/assignments/create" element={
+                <ProtectedRoute allowedRoles={['teacher']}>
+                  <CreateAssignment />
+                  </ProtectedRoute>
+              } />
+              <Route path="/teacher/submissions" element={
+                <ProtectedRoute allowedRoles={['teacher']}>
+                  <Submissions />
+                  </ProtectedRoute>
+              } />
+              <Route path="/teacher/timetable" element={
+                <ProtectedRoute allowedRoles={['teacher']}>
+                  <TeacherTimetable />
+                </ProtectedRoute>
+              } />
+              <Route path="/teacher/profile" element={
+                <ProtectedRoute allowedRoles={['teacher']}>
+                  <TeacherProfile />
+                </ProtectedRoute>
+              } />
+              <Route path="/teacher/settings" element={
+                <ProtectedRoute allowedRoles={['teacher']}>
+                  <TeacherSettings />
+                </ProtectedRoute>
+              } />
+              <Route path="/teacher/classes/:classId" element={
+                <ProtectedRoute allowedRoles={['teacher']}>
+                  <TeacherClassDetail />
+                </ProtectedRoute>
+              } />
+              <Route path="/teacher/attendance" element={
+                <ProtectedRoute allowedRoles={['teacher']}>
+                  <TeacherAttendance />
+                </ProtectedRoute>
+              } />
+              <Route path="/teacher/grades" element={
+                <ProtectedRoute allowedRoles={['teacher']}>
+                  <TeacherGrades />
+                </ProtectedRoute>
+              } />
+
               </Route>
 
             {/* Catch-all */}

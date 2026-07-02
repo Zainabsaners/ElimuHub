@@ -18,7 +18,7 @@ const Login = () => {
   
   const redirectByRole = (user) => {
     const roleRoutes = {
-      'teacher': '/TeacherPortal',
+      'teacher': '/teacher',
       'accountant': '/FinancePortal',
       'registrar': '/RegisterPortal',
       'bursar': '/BursarPortal',

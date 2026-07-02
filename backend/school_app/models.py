@@ -662,6 +662,7 @@ class ClassSubjectAllocation(models.Model):
     periods_per_week = models.IntegerField(default=5, validators=[MinValueValidator(1), MaxValueValidator(10)])
     is_compulsory = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
     
     class Meta:
         unique_together = ['academic_year', 'class_id', 'subject']
@@ -2805,3 +2806,13 @@ class PasswordResetRequest(models.Model):
         self.status = 'completed'
         self.completed_at = timezone.now()
         self.save()
+
+class SessionTemplate(models.Model):
+    """Pre-defined session time templates (Morning, Mid-Morning, Afternoon, etc.)"""
+    name = models.CharField(max_length=50, unique=True)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    is_active = models.BooleanField(default=True)
+    
+    def __str__(self):
+        return f"{self.name} ({self.start_time.strftime('%I:%M %p')} - {self.end_time.strftime('%I:%M %p')})"

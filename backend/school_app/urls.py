@@ -91,7 +91,24 @@ urlpatterns = [
     
     path('api/streams/', views.StreamListView.as_view(), name='stream-list'),
     
-    
+    # In urls.py
+    # Teacher endpoints
+    path('api/teacher/dashboard/', views.get_teacher_dashboard, name='teacher-dashboard'),
+    path('api/teacher/classes/', views.get_teacher_classes, name='teacher-classes'),
+    path('api/teacher/classes/<int:class_id>/students/', views.get_teacher_class_students, name='teacher-class-students'),
+    path('api/teacher/attendance/sessions/<int:class_id>/', views.get_class_sessions, name='teacher-sessions'),
+    path('api/teacher/attendance/mark/', views.mark_attendance, name='mark-attendance'),
+    path('api/teacher/grades/<int:class_id>/', views.get_class_grades, name='teacher-grades'),
+    path('api/teacher/grades/enter/', views.enter_grade, name='enter-grade'),
+    path('api/teacher/assignments/', views.get_teacher_assignments, name='teacher-assignments'),
+    path('api/teacher/assignments/create/', views.create_assignment, name='create-assignment'),
+    path('api/teacher/assignments/<int:assignment_id>/submissions/', views.get_assignment_submissions, name='assignment-submissions'),
+    path('api/teacher/submissions/grade/', views.grade_submission, name='grade-submission'),
+    path('api/teacher/timetable/', views.get_teacher_timetable, name='teacher-timetable'),
+    path('api/teacher/profile/', views.teacher_profile, name='teacher-profile'),
+    path('api/teacher/profile/update/', views.update_teacher_profile, name='update-teacher-profile'),
+     
+     
     
     # 6. Additional fee endpoints
     path('api/fees/dashboard/', views.FeeDashboardAPIView.as_view(), name='fee-dashboard'),
@@ -115,6 +132,7 @@ urlpatterns = [
     path('api/auth/request-reset/', views.request_password_reset, name='request-reset'),
     path('api/auth/check-reset/<str:admission_no>/', views.check_reset_request_status, name='check-reset'),
     path('api/auth/force-change-password/', views.force_change_password, name='force-change-password'), 
+    path('api/auth/change-password/', views.change_password, name='change-password'),
 
     # 7. Fallback Wildcard Routers (EVALUATED LAST)
     path('api/', include(fee_router.urls)),

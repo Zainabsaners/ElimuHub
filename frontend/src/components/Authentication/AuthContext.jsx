@@ -35,7 +35,6 @@ export const AuthProvider = ({ children }) => {
 
       if (token && storedUser) {
         try {
-          console.log("Validating session with token...");
           const response = await fetch(`${API_BASE_URL}/api/auth/validate-token/`, {
             method: 'GET',
             headers: { 
@@ -46,14 +45,12 @@ export const AuthProvider = ({ children }) => {
           
           if (response.ok) {
             const data = await response.json();
-            console.log("Validation response:", response.status, data);
-            setUser(JSON.parse(storedUser));
+            // ✅ FIX: Update the state with the server-verified user
+            setUser(data.user); 
           } else {
-            console.warn("Session invalid, logging out.");
-            logout();
+            logout(); // Clears storage and state
           }
         } catch (e) {
-          console.error("Session validation error:", e);
           logout();
         }
       }
@@ -61,7 +58,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     validateSession();
-  }, [logout]); // ✅ Added logout to dependencies
+  }, [logout]);
 
   const login = async (email, password) => {
     setError(null);

@@ -53,8 +53,16 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'school_app',
     'corsheaders',
+    'django_q',
     
 ]
+Q_CLUSTER = {
+    'name': 'ElimuHub_Cluster',
+    'workers': 4,
+    'recycle': 500,
+    'timeout': 60,
+    'orm': 'default',  # Uses your database as the broker
+}
 AUTH_USER_MODEL = 'school_app.User'
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware', 
