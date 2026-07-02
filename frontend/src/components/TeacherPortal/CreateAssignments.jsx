@@ -25,18 +25,22 @@ const CreateAssignment = () => {
       const res = await authenticatedFetch(`${API_BASE}/api/teacher/classes/`);
       if (res && res.ok) {
         const data = await res.json();
-        // Flatten subjects from classes into course list
         const courseList = [];
         data.data?.forEach(cls => {
           cls.subjects?.forEach(sub => {
-            courseList.push({ id: sub.id, name: `${sub.code} - ${sub.name}`, class: cls.name });
+            courseList.push({
+              id: sub.id,
+              name: `${sub.code} - ${sub.name}`,
+              class: cls.name
+            });
           });
         });
         setCourses(courseList);
       }
     };
+
     fetchCourses();
-  }, [authenticatedFetch, API_BASE]);
+  }, [API_BASE, authenticatedFetch]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -46,7 +50,7 @@ const CreateAssignment = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await authenticatedFetch(`${API_BASE}/teacher/assignments/create/`, {
+      const res = await authenticatedFetch(`${API_BASE}/api/teacher/assignments/create/`, {
         method: 'POST',
         body: JSON.stringify(form)
       });

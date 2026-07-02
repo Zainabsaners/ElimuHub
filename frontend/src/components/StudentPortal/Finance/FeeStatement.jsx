@@ -19,6 +19,8 @@ import { useAuth } from '../../Authentication/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
 import toast from 'react-hot-toast';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+
 const FeeStatement = () => {
   const { authenticatedFetch } = useAuth();
   const { theme } = useTheme();
@@ -40,7 +42,7 @@ const FeeStatement = () => {
     try {
       if (!showToast) setLoading(true);
       
-      const response = await authenticatedFetch('http://127.0.0.1:8000/api/students/finance/');
+      const response = await authenticatedFetch(`${API_BASE}/api/students/finance/`);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

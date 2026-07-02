@@ -20,6 +20,8 @@ import { useAuth } from '../../components/Authentication/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import toast from 'react-hot-toast';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+
 // ==================== SKELETON LOADER COMPONENTS ====================
 const StatCardSkeleton = () => (
   <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg animate-pulse">
@@ -201,7 +203,7 @@ const Dashboard = () => {
     setError(null);
     if (!showToast) setLoading(true);
     
-    const response = await authenticatedFetch('http://127.0.0.1:8000/api/students/dashboard/');
+    const response = await authenticatedFetch(`${API_BASE}/api/student/dashboard/`);
     
     // ✅ Check if response exists before accessing .ok
     if (!response) {

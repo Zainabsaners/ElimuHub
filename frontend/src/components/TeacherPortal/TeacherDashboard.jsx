@@ -42,7 +42,7 @@ const TeacherDashboard = () => {
     <div className={`p-4 md:p-6 min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
             Welcome, {teacher?.name || 'Teacher'}! 👋
           </h1>
           <p className="text-gray-600 dark:text-gray-400">{teacher?.email}</p>

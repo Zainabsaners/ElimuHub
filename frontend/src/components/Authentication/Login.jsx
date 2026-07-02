@@ -72,7 +72,7 @@ const Login = () => {
 
   return (
     
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50/40 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 to-indigo-50/40 flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-8 bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
         {/* Header */}
         <div className="text-center">
@@ -88,7 +88,7 @@ const Login = () => {
           
           {authError && (
             <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-xl mt-4 flex items-center text-sm text-left">
-              <svg className="w-5 h-5 mr-2 text-amber-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="w-5 h-5 mr-2 text-amber-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
               <span>{authError}</span>
