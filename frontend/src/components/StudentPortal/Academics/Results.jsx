@@ -5,7 +5,7 @@ import {
   FiAlertCircle
 } from 'react-icons/fi';
 import { useAuth } from '../../Authentication/AuthContext';
-import { useTheme } from '../../../context/ThemeContext';
+import { useTheme } from "@/hooks/useTheme";
 import toast from 'react-hot-toast';
 
 const Results = () => {
@@ -307,7 +307,7 @@ const Results = () => {
                     className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-5 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg flex-shrink-0">
+                      <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg shrink-0">
                         <FiBookOpen className="text-indigo-600 dark:text-indigo-400" />
                       </div>
                       <div className="flex-1 min-w-0">

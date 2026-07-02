@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Authentication/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme } from "@/hooks/useTheme";
 import { FiUser, FiLock, FiSettings, FiSave, FiEye, FiEyeOff, FiRefreshCw } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 

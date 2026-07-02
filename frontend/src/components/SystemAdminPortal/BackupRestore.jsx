@@ -205,7 +205,7 @@ const BackupRestore = () => {
   }, [fetchBackups, fetchStats, fetchSystemInfo]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-25 to-gray-50 p-6 md:p-8 overflow-auto">
+    <div className="min-h-screen bg-linear-to-br from-gray-25 to-gray-50 p-6 md:p-8 overflow-auto">
       {/* Notification */}
       {notification.show && (
         <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-xl shadow-lg border ${
@@ -348,7 +348,7 @@ const BackupRestore = () => {
                   className={`px-5 py-3 rounded-xl flex items-center gap-2 transition-all duration-200 ${
                     backupLoading
                       ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 shadow-xs hover:shadow-sm'
+                      : 'bg-linear-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 shadow-xs hover:shadow-sm'
                   }`}
                 >
                   {backupLoading ? (
@@ -581,7 +581,7 @@ const BackupRestore = () => {
               {/* Warning */}
               <div className="p-6 bg-rose-50 border border-rose-200 rounded-xl">
                 <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-rose-600 flex-shrink-0 mt-0.5" />
+                  <AlertCircle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
                   <div>
                     <h4 className="font-bold text-rose-800 text-lg mb-2">⚠️ Critical Operation Warning</h4>
                     <p className="text-rose-700">
@@ -610,7 +610,7 @@ const BackupRestore = () => {
                         return (
                           <div key={backup.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors duration-200">
                             <div className="flex items-start gap-3 mb-3 sm:mb-0">
-                              <FileText className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                              <FileText className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
                               <div>
                                 <p className="font-medium text-gray-900">{backup.backup_name}</p>
                                 <div className="flex flex-wrap items-center gap-4 mt-2">
@@ -628,7 +628,7 @@ const BackupRestore = () => {
                             <button
                               onClick={() => handleRestoreBackup(backup.id)}
                               disabled={backupLoading}
-                              className="px-4 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 text-white rounded-lg hover:from-amber-700 hover:to-amber-800 transition-all duration-200 shadow-xs hover:shadow-sm disabled:opacity-50"
+                              className="px-4 py-2.5 bg-linear-to-r from-amber-600 to-amber-700 text-white rounded-lg hover:from-amber-700 hover:to-amber-800 transition-all duration-200 shadow-xs hover:shadow-sm disabled:opacity-50"
                             >
                               Restore Now
                             </button>
@@ -707,7 +707,7 @@ const BackupRestore = () => {
               </button>
               <button
                 onClick={handleCleanBackups}
-                className="px-8 py-3.5 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-xl hover:from-gray-700 hover:to-gray-800 font-medium shadow-xs hover:shadow-sm transition-all duration-200"
+                className="px-8 py-3.5 bg-linear-to-r from-gray-600 to-gray-700 text-white rounded-xl hover:from-gray-700 hover:to-gray-800 font-medium shadow-xs hover:shadow-sm transition-all duration-200"
               >
                 Clean Old Backups
               </button>

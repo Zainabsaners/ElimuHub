@@ -124,7 +124,7 @@ function RegisterSidebar() {
                 >
                   {/* Icon */}
                   <div className={`
-                    flex-shrink-0 transition-colors duration-200
+                    shrink-0 transition-colors duration-200
                     ${window.location.pathname === val.link ? 'text-white' : 'text-slate-400 group-hover:text-white'}
                     ${isCollapsed ? 'text-xl' : 'text-lg'}
                   `}>
@@ -147,7 +147,7 @@ function RegisterSidebar() {
                   {!isCollapsed && val.subNav && (
                     <svg 
                       className={`
-                        w-4 h-4 transition-transform duration-200 flex-shrink-0
+                        w-4 h-4 transition-transform duration-200 shrink-0
                         ${openDropdown === key ? 'rotate-180' : ''}
                         ${window.location.pathname === val.link ? 'text-white' : 'text-slate-400'}
                       `}
@@ -179,7 +179,7 @@ function RegisterSidebar() {
                           }}
                         >
                           <div className={`
-                            flex-shrink-0 text-sm transition-colors duration-200
+                            shrink-0 text-sm transition-colors duration-200
                             ${window.location.pathname === subVal.link ? 'text-white' : 'text-slate-400 group-hover:text-white'}
                           `}>
                             {subVal.icon}

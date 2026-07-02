@@ -5,7 +5,7 @@ import {
   FiChevronRight, FiInfo, FiFileText, FiX
 } from 'react-icons/fi';
 import { useAuth } from '../../Authentication/AuthContext';
-import { useTheme } from '../../../context/ThemeContext';
+import { useTheme } from "@/hooks/useTheme";
 import toast from 'react-hot-toast';
 
 const Courses = () => {
@@ -316,7 +316,7 @@ const Courses = () => {
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <FiBookOpen className="text-indigo-500 flex-shrink-0" />
+                          <FiBookOpen className="text-indigo-500 shrink-0" />
                           <p className="font-semibold text-gray-800 dark:text-white truncate">
                             {course.code}
                           </p>
@@ -325,7 +325,7 @@ const Courses = () => {
                           {course.title}
                         </h3>
                       </div>
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ml-2 ${getStatusBadge(course.enrollment_status)}`}>
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ml-2 ${getStatusBadge(course.enrollment_status)}`}>
                         {course.enrollment_status || 'Active'}
                       </span>
                     </div>

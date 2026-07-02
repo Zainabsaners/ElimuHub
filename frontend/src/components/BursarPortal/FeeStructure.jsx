@@ -258,7 +258,7 @@ const FeeStructure = () => {
         'bg-blue-50 border-blue-200'
       } border rounded-lg shadow-lg p-4 transition-all duration-300`}>
         <div className="flex items-start">
-          <div className={`flex-shrink-0 ${
+          <div className={`shrink-0 ${
             notification.type === 'error' ? 'text-indigo-400' :
             notification.type === 'success' ? 'text-green-400' :
             'text-blue-400'
@@ -282,7 +282,7 @@ const FeeStructure = () => {
           </div>
           <button
             onClick={() => setNotification({ show: false, type: '', message: '' })}
-            className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-600"
+            className="ml-4 shrink-0 text-gray-400 hover:text-gray-600"
           >
             ✕
           </button>
@@ -294,7 +294,7 @@ const FeeStructure = () => {
   const renderStatsCards = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       {/* Total Structures */}
-      <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-6">
+      <div className="bg-linear-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-6">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-blue-600 mb-1">Total Structures</p>
@@ -316,7 +316,7 @@ const FeeStructure = () => {
       </div>
 
       {/* Total Amount */}
-      <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-6">
+      <div className="bg-linear-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-6">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-green-600 mb-1">Total Amount</p>
@@ -334,7 +334,7 @@ const FeeStructure = () => {
       </div>
 
       {/* Classes & Categories */}
-      <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-6">
+      <div className="bg-linear-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-6">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-purple-600 mb-1">Classes & Categories</p>
@@ -356,7 +356,7 @@ const FeeStructure = () => {
       </div>
 
       {/* Last Updated */}
-      <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-6">
+      <div className="bg-linear-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-6">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-orange-600 mb-1">System Status</p>
@@ -565,7 +565,7 @@ const FeeStructure = () => {
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gradient-to-r from-gray-800 to-gray-900">
+            <thead className="bg-linear-to-r from-gray-800 to-gray-900">
               <tr>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-white uppercase tracking-wider">
                   Academic Year & Term
@@ -735,7 +735,7 @@ const FeeStructure = () => {
               ))}
             </tbody>
             
-            <tfoot className="bg-gradient-to-r from-gray-50 to-gray-100">
+            <tfoot className="bg-linear-to-r from-gray-50 to-gray-100">
               <tr>
                 <td colSpan="2" className="px-6 py-4">
                   <div className="font-semibold text-gray-900">
@@ -936,7 +936,7 @@ const FeeStructure = () => {
 
   return (
     <div className="lg:col-span-1 space-y-6">
-      <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl shadow-lg p-6 text-white">
+      <div className="bg-linear-to-br from-blue-600 to-blue-700 rounded-2xl shadow-lg p-6 text-white">
         <h3 className="text-lg font-semibold mb-4 flex items-center">
           <DollarSign className="w-5 h-5 mr-2" />
           Payment Channels
@@ -1014,7 +1014,7 @@ const FeeStructure = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 to-blue-50 p-4 md:p-6 lg:p-8">
       {renderNotification()}
       {renderDetailModal()}
 

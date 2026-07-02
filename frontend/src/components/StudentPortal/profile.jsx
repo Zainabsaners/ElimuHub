@@ -8,7 +8,7 @@ import {
 } from 'react-icons/fi';
 import { FaGraduationCap, FaUserGraduate } from 'react-icons/fa';
 import { useAuth } from '../Authentication/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme } from "@/hooks/useTheme";
 import toast from 'react-hot-toast';
 
 const Profile = () => {
@@ -256,7 +256,7 @@ const Profile = () => {
         {/* Profile Card */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
           {/* Header with Avatar */}
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-8">
+          <div className="bg-linear-to-r from-indigo-600 to-purple-600 px-6 py-8">
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-white text-3xl font-bold border-2 border-white/50">
                 {profile.first_name?.charAt(0)}{profile.last_name?.charAt(0)}

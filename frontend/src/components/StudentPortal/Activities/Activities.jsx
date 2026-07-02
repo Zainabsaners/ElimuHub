@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../Authentication/AuthContext';
-//import { useTheme } from '../../context/ThemeContext';
+//import { useTheme } from "@/hooks/useTheme";
 import { FiRefreshCw, FiClock, FiActivity, FiFileText, FiDollarSign, FiCalendar, FiBookOpen } from 'react-icons/fi';
 
 const Activities = () => {

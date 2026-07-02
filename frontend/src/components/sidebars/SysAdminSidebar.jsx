@@ -99,7 +99,7 @@ function SysAdminSidebar() {
                     }
                   }}
                 >
-                  <div className={`flex-shrink-0 ${window.location.pathname === val.link ? 'text-white' : 'text-indigo-300 group-hover:text-white'}`}>
+                  <div className={`shrink-0 ${window.location.pathname === val.link ? 'text-white' : 'text-indigo-300 group-hover:text-white'}`}>
                     {val.icon}
                   </div>
                   {!isCollapsed && (

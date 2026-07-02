@@ -21,11 +21,11 @@ const Toast = React.memo(({ show, message, type, onClose }) => {
   if (!show) return null;
 
   const bgColor = {
-    success: 'bg-gradient-to-r from-green-500 to-emerald-500',
-    error: 'bg-gradient-to-r from-indigo-500 to-rose-500',
-    info: 'bg-gradient-to-r from-indigo-500 to-indigo-500',
-    warning: 'bg-gradient-to-r from-yellow-500 to-amber-500'
-  }[type] || 'bg-gradient-to-r from-indigo-500 to-indigo-500';
+    success: 'bg-linear-to-r from-green-500 to-emerald-500',
+    error: 'bg-linear-to-r from-indigo-500 to-rose-500',
+    info: 'bg-linear-to-r from-indigo-500 to-indigo-500',
+    warning: 'bg-linear-to-r from-yellow-500 to-amber-500'
+  }[type] || 'bg-linear-to-r from-indigo-500 to-indigo-500';
 
   const icon = {
     success: <FiCheckCircle className="text-white" size={20} />,
@@ -37,9 +37,9 @@ const Toast = React.memo(({ show, message, type, onClose }) => {
   return (
     <div className="fixed top-4 right-4 z-50 animate-slide-in">
       <div className={`${bgColor} text-white rounded-xl shadow-lg p-4 min-w-[300px] flex items-center gap-3`}>
-        <div className="flex-shrink-0">{icon}</div>
+        <div className="shrink-0">{icon}</div>
         <div className="flex-grow"><p className="font-medium">{message}</p></div>
-        <button onClick={onClose} className="flex-shrink-0 text-white hover:text-gray-200">
+        <button onClick={onClose} className="shrink-0 text-white hover:text-gray-200">
           <FiX size={18} />
         </button>
       </div>
@@ -613,7 +613,7 @@ const FeeManagement = () => {
   };
 
   return (
-    <div className="p-4 bg-gradient-to-br from-gray-50 to-indigo-50 min-h-screen">
+    <div className="p-4 bg-linear-to-br from-gray-50 to-indigo-50 min-h-screen">
       <Toast show={toast.show} message={toast.message} type={toast.type} onClose={closeToast} />
       
       {/* Header */}
@@ -636,28 +636,28 @@ const FeeManagement = () => {
             value={statistics.categories.total || 0}
             subValue={`${statistics.categories.active || 0} active`}
             icon={FiBook}
-            color="bg-gradient-to-r from-blue-500 to-cyan-500"
+            color="bg-linear-to-r from-blue-500 to-cyan-500"
           />
           <StatCard
             title="Fee Structures"
             value={statistics.structures.total || 0}
             subValue={formatCurrency(statistics.structures.total_amount || 0)}
             icon={FiLayers}
-            color="bg-gradient-to-r from-purple-500 to-pink-500"
+            color="bg-linear-to-r from-purple-500 to-pink-500"
           />
           <StatCard
             title="Transactions"
             value={statistics.transactions.total_transactions || 0}
             subValue={`${statistics.transactions.completed_transactions || 0} completed`}
             icon={FiCreditCard}
-            color="bg-gradient-to-r from-green-500 to-emerald-500"
+            color="bg-linear-to-r from-green-500 to-emerald-500"
           />
           <StatCard
             title="Collection Rate"
             value={`${statistics.transactions.collection_rate || 0}%`}
             subValue={formatCurrency(statistics.transactions.total_collected || 0)}
             icon={FiBarChart2}
-            color="bg-gradient-to-r from-orange-500 to-amber-500"
+            color="bg-linear-to-r from-orange-500 to-amber-500"
           />
         </div>
 

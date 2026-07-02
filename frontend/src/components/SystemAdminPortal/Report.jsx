@@ -236,7 +236,7 @@ const Report = () => {
             <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Recent Transactions</h3>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[600px]">
+                <table className="w-full min-w-150">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">

@@ -345,7 +345,7 @@ const Dashboard = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {/* Total Collected */}
-        <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-5 text-white transform transition-all duration-200 hover:shadow-xl">
+        <div className="bg-linear-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-5 text-white transform transition-all duration-200 hover:shadow-xl">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium opacity-90 mb-2">Total Collected</p>
@@ -359,7 +359,7 @@ const Dashboard = () => {
         </div>
 
         {/* Today's Collection */}
-        <div className="bg-gradient-to-r from-blue-500 to-cyan-600 rounded-xl shadow-lg p-5 text-white transform transition-all duration-200 hover:shadow-xl">
+        <div className="bg-linear-to-r from-blue-500 to-cyan-600 rounded-xl shadow-lg p-5 text-white transform transition-all duration-200 hover:shadow-xl">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium opacity-90 mb-2">Today's Collection</p>
@@ -373,7 +373,7 @@ const Dashboard = () => {
         </div>
 
         {/* Pending Collections */}
-        <div className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl shadow-lg p-5 text-white transform transition-all duration-200 hover:shadow-xl">
+        <div className="bg-linear-to-r from-amber-500 to-orange-600 rounded-xl shadow-lg p-5 text-white transform transition-all duration-200 hover:shadow-xl">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium opacity-90 mb-2">Pending Collections</p>
@@ -387,7 +387,7 @@ const Dashboard = () => {
         </div>
 
         {/* Overdue Payments */}
-        <div className="bg-gradient-to-r from-indigo-500 to-rose-600 rounded-xl shadow-lg p-5 text-white transform transition-all duration-200 hover:shadow-xl">
+        <div className="bg-linear-to-r from-indigo-500 to-rose-600 rounded-xl shadow-lg p-5 text-white transform transition-all duration-200 hover:shadow-xl">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium opacity-90 mb-2">Overdue Payments</p>
@@ -414,7 +414,7 @@ const Dashboard = () => {
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2.5">
             <div 
-              className="bg-gradient-to-r from-green-400 to-green-600 h-2.5 rounded-full transition-all duration-500"
+              className="bg-linear-to-r from-green-400 to-green-600 h-2.5 rounded-full transition-all duration-500"
               style={{ width: `${monthlyProgress}%` }}
             ></div>
           </div>
@@ -547,7 +547,7 @@ const Dashboard = () => {
               {topStudents.map((student, index) => (
                 <div key={student.student_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center text-white font-bold">
+                    <div className="w-8 h-8 bg-linear-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center text-white font-bold">
                       {index + 1}
                     </div>
                     <div>
@@ -570,7 +570,7 @@ const Dashboard = () => {
           </div>
 
           {/* Performance Metrics */}
-          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg p-5 text-white">
+          <div className="bg-linear-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg p-5 text-white">
             <h3 className="text-lg font-semibold mb-4">Performance Metrics</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">

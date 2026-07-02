@@ -6,7 +6,7 @@ import {
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../Authentication/AuthContext';
-import { useTheme } from '../../../context/ThemeContext';
+import { useTheme } from "@/hooks/useTheme";
 import toast from 'react-hot-toast';
 
 const Assignments = () => {
@@ -253,7 +253,7 @@ const Assignments = () => {
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <FiFileText className="text-indigo-500 flex-shrink-0" />
+                        <FiFileText className="text-indigo-500 shrink-0" />
                         <h3 className="text-lg font-semibold text-gray-800 dark:text-white truncate">
                           {assignment.title}
                         </h3>

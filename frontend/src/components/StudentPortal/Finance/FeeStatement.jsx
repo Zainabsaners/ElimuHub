@@ -16,7 +16,7 @@ import {
 } from 'react-icons/fi';
 import { FaMoneyBillWave, FaReceipt } from 'react-icons/fa';
 import { useAuth } from '../../Authentication/AuthContext';
-import { useTheme } from '../../../context/ThemeContext';
+import { useTheme } from "@/hooks/useTheme";
 import toast from 'react-hot-toast';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';

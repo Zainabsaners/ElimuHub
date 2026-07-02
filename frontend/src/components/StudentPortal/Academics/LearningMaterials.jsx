@@ -6,7 +6,7 @@ import {
   FiMonitor, FiHeadphones
 } from 'react-icons/fi';
 import { useAuth } from '../../Authentication/AuthContext';
-import { useTheme } from '../../../context/ThemeContext';
+import { useTheme } from "@/hooks/useTheme";
 import toast from 'react-hot-toast';
 
 const LearningMaterials = () => {
@@ -296,7 +296,7 @@ const LearningMaterials = () => {
                 >
                   <div className="p-5">
                     <div className="flex items-start gap-3">
-                      <div className={`p-3 rounded-lg flex-shrink-0 ${getContentTypeColor(material.content_type)}`}>
+                      <div className={`p-3 rounded-lg shrink-0 ${getContentTypeColor(material.content_type)}`}>
                         {getContentTypeIcon(material.content_type)}
                       </div>
                       <div className="flex-1 min-w-0">

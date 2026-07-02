@@ -17,7 +17,7 @@ import {
 } from 'react-icons/fi';
 import { FaMoneyBillWave, FaGraduationCap } from 'react-icons/fa';
 import { useAuth } from '../../components/Authentication/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme } from "@/hooks/useTheme";
 import toast from 'react-hot-toast';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
@@ -120,7 +120,7 @@ const StatCard = ({ title, value, icon, color, subtitle, trend, loading, onClick
             </div>
           )}
         </div>
-        <div className={`p-3 rounded-lg flex-shrink-0 ${iconContainerClass}`}>
+        <div className={`p-3 rounded-lg shrink-0 ${iconContainerClass}`}>
           {icon}
         </div>
       </div>
@@ -142,7 +142,7 @@ const ActivityItem = ({ icon, message, time, type = 'default' }) => {
 
   return (
     <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors duration-200 group">
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0 ${bgClass}`}>
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0 ${bgClass}`}>
         {icon}
       </div>
       <div className="flex-1 min-w-0">
@@ -181,7 +181,7 @@ const DeadlineItem = ({ title, date, daysLeft: propDaysLeft }) => {
         <p className="font-medium text-gray-800 dark:text-white text-sm truncate">{title}</p>
         <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(date).toLocaleDateString()}</p>
       </div>
-      <span className={`text-xs px-3 py-1 rounded-full font-medium flex-shrink-0 ${urgencyColor}`}>
+      <span className={`text-xs px-3 py-1 rounded-full font-medium shrink-0 ${urgencyColor}`}>
         {daysLeft === 0 ? 'Today!' : `${daysLeft} day${daysLeft > 1 ? 's' : ''}`}
       </span>
     </div>
@@ -203,7 +203,7 @@ const Dashboard = () => {
     setError(null);
     if (!showToast) setLoading(true);
     
-    const response = await authenticatedFetch(`${API_BASE}/api/student/dashboard/`);
+    const response = await authenticatedFetch(`${API_BASE}/api/students/dashboard/`);
     
     // ✅ Check if response exists before accessing .ok
     if (!response) {
@@ -479,7 +479,7 @@ const Dashboard = () => {
         {/* Notifications Bar */}
         {notifications.length > 0 && (
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 rounded-lg flex items-start gap-3 mb-6" role="alert">
-            <FiBell className="text-amber-600 dark:text-amber-400 text-xl mt-0.5 flex-shrink-0" aria-hidden="true" />
+            <FiBell className="text-amber-600 dark:text-amber-400 text-xl mt-0.5 shrink-0" aria-hidden="true" />
             <div className="flex-1 min-w-0">
               <p className="text-amber-800 dark:text-amber-300 font-medium">
                 You have {notifications.length} notification{notifications.length > 1 ? 's' : ''}

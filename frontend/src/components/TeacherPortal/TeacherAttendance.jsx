@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiCalendar, FiRefreshCw } from 'react-icons/fi';
 import { useAuth } from '../Authentication/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme } from "@/hooks/useTheme";
 
 const TeacherAttendance = () => {
   const { authenticatedFetch } = useAuth();

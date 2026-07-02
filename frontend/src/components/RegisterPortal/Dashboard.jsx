@@ -504,7 +504,7 @@ function QuickActionButton({ icon, label, color, onClick }) {
 function NotificationItem({ notification, onClick }) {
   return (
     <div className={`flex items-start p-3 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${!notification.read ? 'bg-indigo-50/50' : ''}`} onClick={onClick}>
-      <div className={`flex-shrink-0 w-10 h-10 rounded-full ${notificationColors[notification.type]?.bg || 'bg-gray-50'} flex items-center justify-center mr-3`}>
+      <div className={`shrink-0 w-10 h-10 rounded-full ${notificationColors[notification.type]?.bg || 'bg-gray-50'} flex items-center justify-center mr-3`}>
         <i className={`fas fa-${notification.icon} ${notificationColors[notification.type]?.icon || 'text-gray-600'}`}></i>
       </div>
       <div className="flex-1 min-w-0">

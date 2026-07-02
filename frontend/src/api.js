@@ -225,7 +225,7 @@ export const payroll = {
     getPayrollStats: () => api.get('/api/payroll/stats/'),
 };
 export const studentPortal = {
-    getDashboard: () => api.get('/api/student/dashboard/'),
+    getDashboard: () => api.get('/api/students/dashboard/'),
     getResults: () => api.get('/api/student/results/'),
     getFeeStatement: () => api.get('/api/student/fee-statement/'),
     getAttendance: () => api.get('/api/student/attendance/'),

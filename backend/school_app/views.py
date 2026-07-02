@@ -5203,7 +5203,6 @@ def get_teacher_dashboard(request):
         }
     })
     
-# In views.py
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
@@ -5213,10 +5212,10 @@ def get_teacher_classes(request):
     
     teacher = request.user
     
-    # Classes where teacher is class_teacher
+    # Get class_teacher classes
     class_teacher_classes = Class.objects.filter(class_teacher=teacher, is_active=True)
     
-    # Classes from subject allocations
+    # Get classes from subject allocations
     allocated_class_ids = ClassSubjectAllocation.objects.filter(
         teacher=teacher,
         is_active=True
@@ -5227,11 +5226,21 @@ def get_teacher_classes(request):
     
     class_data = []
     for cls in classes:
-        subject_names = ClassSubjectAllocation.objects.filter(
+        # Get subject allocations with subject details
+        allocations = ClassSubjectAllocation.objects.filter(
             class_id=cls,
             teacher=teacher,
             is_active=True
-        ).values_list('subject__area_name', flat=True)
+        ).select_related('subject')
+        
+        subjects = [{
+            'id': alloc.subject.id,
+            'code': alloc.subject.area_code,
+            'name': alloc.subject.area_name,
+        } for alloc in allocations]
+        
+        # For display purposes, keep a separate list of names (optional)
+        subject_names = [s['name'] for s in subjects]
         
         class_data.append({
             'id': cls.id,
@@ -5239,11 +5248,9 @@ def get_teacher_classes(request):
             'code': cls.class_code,
             'level': cls.numeric_level,
             'capacity': cls.capacity,
-            'student_count': Student.objects.filter(
-                current_class=cls,
-                status='Active'
-            ).count(),
-            'subjects': list(subject_names),
+            'student_count': Student.objects.filter(current_class=cls, status='Active').count(),
+            'subjects': subjects,          # now objects with id, code, name
+            'subject_names': subject_names, # optional, for UI display
             'is_class_teacher': cls.class_teacher == teacher,
         })
     

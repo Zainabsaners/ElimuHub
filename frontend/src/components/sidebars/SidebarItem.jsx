@@ -15,7 +15,7 @@ const SidebarItem = ({ to, icon: Icon, label, isCollapsed, isMobileView, onClick
   return (
     <Link to={to} onClick={onClick} className={`${baseClasses} ${layoutClasses}`}>
       {/* Shine effect on hover */}
-      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-linear-to-r from-transparent via-white/20 to-transparent"></div>
       
       <div className={`${isMobileView ? 'text-xl mb-1' : 'text-xl'} drop-shadow-lg`}>
         {typeof Icon === 'function' ? <Icon /> : Icon}

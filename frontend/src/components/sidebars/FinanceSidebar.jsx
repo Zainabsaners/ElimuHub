@@ -56,7 +56,7 @@ function Sidebar() {
       {/* Sidebar */}
       <div 
         className={`
-          h-screen bg-gradient-to-b from-indigo-700 to-indigo-800 
+          h-screen bg-linear-to-b from-indigo-700 to-indigo-800 
           shadow-2xl border-r border-indigo-600 transition-all duration-300 ease-in-out z-50
           ${isCollapsed ? 'w-20' : 'w-64'}
           /* Mobile styles */
@@ -124,7 +124,7 @@ function Sidebar() {
                 >
                   {/* Icon */}
                   <div className={`
-                    flex-shrink-0 transition-colors duration-200
+                    shrink-0 transition-colors duration-200
                     ${window.location.pathname === val.link ? 'text-white' : 'text-blue-200 group-hover:text-white'}
                     ${isCollapsed ? 'text-xl' : 'text-lg'}
                   `}>
@@ -147,7 +147,7 @@ function Sidebar() {
                   {!isCollapsed && val.subNav && (
                     <svg 
                       className={`
-                        w-4 h-4 transition-transform duration-200 flex-shrink-0
+                        w-4 h-4 transition-transform duration-200 shrink-0
                         ${openDropdown === key ? 'rotate-180' : ''}
                         ${window.location.pathname === val.link ? 'text-white' : 'text-blue-200'}
                       `}
@@ -180,7 +180,7 @@ function Sidebar() {
                           }}
                         >
                           <div className={`
-                            flex-shrink-0 text-sm transition-colors duration-200
+                            shrink-0 text-sm transition-colors duration-200
                             ${window.location.pathname === subVal.link ? 'text-white' : 'text-blue-200 group-hover:text-white'}
                           `}>
                             {subVal.icon}

@@ -345,7 +345,7 @@ const AuditLogs = () => {
   }, [filters]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-25 to-gray-50 p-6 md:p-8 overflow-auto">
+    <div className="min-h-screen bg-linear-to-br from-gray-25 to-gray-50 p-6 md:p-8 overflow-auto">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-3">
@@ -450,7 +450,7 @@ const AuditLogs = () => {
             <button
               onClick={handleClearLogs}
               disabled={clearing}
-              className="px-5 py-3 bg-gradient-to-r from-rose-600 to-rose-700 text-white rounded-xl hover:from-rose-700 hover:to-rose-800 flex items-center gap-2 shadow-xs hover:shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-3 bg-linear-to-r from-rose-600 to-rose-700 text-white rounded-xl hover:from-rose-700 hover:to-rose-800 flex items-center gap-2 shadow-xs hover:shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {clearing ? <Loader className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
               <span className="font-medium">Clear Logs</span>
@@ -552,7 +552,7 @@ const AuditLogs = () => {
               </button>
               <button
                 onClick={applyFilters}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-medium shadow-xs hover:shadow-sm"
+                className="px-6 py-3 bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-medium shadow-xs hover:shadow-sm"
               >
                 Apply Filters
               </button>

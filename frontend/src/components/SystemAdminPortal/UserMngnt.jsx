@@ -1381,7 +1381,7 @@ const UserManagement = () => {
 
                 <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <div className="flex">
-                    <Key className="h-5 w-5 text-yellow-600 mr-2 flex-shrink-0" />
+                    <Key className="h-5 w-5 text-yellow-600 mr-2 shrink-0" />
                     <div>
                       <p className="text-yellow-800 font-medium mb-1">Important Notice</p>
                       <p className="text-yellow-700 text-sm">

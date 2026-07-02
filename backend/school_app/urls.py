@@ -59,6 +59,7 @@ urlpatterns = [
     path('api/auth/system-status/', views.system_status, name='system-status'),
     
     # 4. Explicit Student Management Endpoints (EVALUATED FIRST)
+   # path('api/students/dashboard/', views.StudentViewSet.as_view, name='student'),
     path('api/students/import/', views.StudentBulkImportView.as_view(), name='student-import'),
     path('api/students/generate-admission-no/', views.GenerateAdmissionNumberView.as_view(), name='generate-admission-no'),
     path('api/students/statistics/', views.StudentStatisticsView.as_view(), name='student-statistics'),

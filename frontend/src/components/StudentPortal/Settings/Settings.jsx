@@ -6,7 +6,7 @@ import {
   FiSave, FiX, FiShield, FiClock
 } from 'react-icons/fi';
 import { useAuth } from '../../Authentication/AuthContext';
-import { useTheme } from '../../../context/ThemeContext';
+import { useTheme } from "@/hooks/useTheme";
 import toast from 'react-hot-toast';
 
 const Settings = () => {

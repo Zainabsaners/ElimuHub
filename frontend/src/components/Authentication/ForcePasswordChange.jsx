@@ -61,7 +61,7 @@ const ForcePasswordChange = () => {
         setSuccess(true);
         toast.success('Password changed successfully!');
         setTimeout(() => {
-          navigate('/student/dashboard');
+          navigate('/students/dashboard');
         }, 2000);
       } else {
         setError(data.error || 'Failed to change password');
@@ -113,14 +113,14 @@ const ForcePasswordChange = () => {
             </p>
           )}
           <div className="mt-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-700 dark:text-amber-300 flex items-center gap-2">
-            <FiAlertCircle className="flex-shrink-0" />
+            <FiAlertCircle className="shrink-0" />
             <span>Your password has been reset by the administrator. Please set a new password.</span>
           </div>
         </div>
 
         {error && (
           <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm flex items-center gap-2">
-            <FiAlertCircle className="flex-shrink-0" />
+            <FiAlertCircle className="shrink-0" />
             {error}
           </div>
         )}

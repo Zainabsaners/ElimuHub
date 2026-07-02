@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, Outlet, useSearchParams } from 'react-router-dom';
 import { FiUsers, FiCalendar, FiBookOpen, FiBarChart2, FiArrowLeft } from 'react-icons/fi';
 import { useAuth } from '../Authentication/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme } from "@/hooks/useTheme";
 import TeacherClassStudents from './TeacherClassStudents';
 import MarkAttendance from './MarkAttendance';
 import GradeEntry from './GradeEntry';

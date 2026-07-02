@@ -282,7 +282,7 @@ const Report = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-4 md:p-8">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 to-blue-50 p-4 md:p-8">
       {notification.show && (
         <div className="fixed top-4 right-4 z-50 max-w-sm w-full bg-blue-600 text-white rounded-lg shadow-lg p-4 flex justify-between items-center">
           <span>{notification.message}</span>

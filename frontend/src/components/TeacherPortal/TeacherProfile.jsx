@@ -1,7 +1,7 @@
 // In TeacherProfile.jsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Authentication/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme } from "@/hooks/useTheme";
 import { FiUser, FiMail, FiPhone, FiBriefcase, FiCalendar } from 'react-icons/fi';
 
 const TeacherProfile = () => {

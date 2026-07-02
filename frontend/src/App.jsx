@@ -9,7 +9,8 @@ import Register from "./components/RegisterPortal/Register";
 import SysAdmin from "./components/SystemAdminPortal/SystemAdmin";
 import StudentDashboard from "./components/StudentPortal/Dashboard";
 import { AuthProvider, useAuth } from "./components/Authentication/AuthContext";
-import { ThemeProvider, useTheme } from "./context/ThemeContext";
+import { ThemeProvider } from "./context/ThemeContext";
+import { useTheme } from "@/hooks/useTheme";
 import ProtectedRoute from "./components/Authentication/ProtectedRoute";
 import Logout from "./components/Authentication/Logout";
 import FinanceSidebar from "./components/sidebars/FinanceSidebar";
@@ -130,7 +131,7 @@ function App() {
                   <StudentDashboard />
                 </ProtectedRoute>
               } />
-              <Route path="/student/dashboard" element={
+              <Route path="/students/dashboard" element={
                 <ProtectedRoute allowedRoles={['student']}>
                   <StudentDashboard />
                 </ProtectedRoute>

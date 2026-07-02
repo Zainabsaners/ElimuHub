@@ -181,7 +181,7 @@ function Admission() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 p-6">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -300,7 +300,7 @@ function Admission() {
 
         {/* Main Form */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+          <div className="bg-linear-to-r from-blue-600 to-blue-700 px-6 py-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-white">Student Registration Form</h2>
               <span className="bg-white/20 text-white text-sm px-3 py-1 rounded-full">
@@ -603,7 +603,7 @@ function Admission() {
               <button 
                 type="submit" 
                 disabled={isSubmitting} 
-                className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                className="flex items-center gap-2 px-8 py-3 bg-linear-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
               >
                 {isSubmitting ? (
                   <>

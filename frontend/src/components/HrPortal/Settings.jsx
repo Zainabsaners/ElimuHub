@@ -43,7 +43,7 @@ const Notification = ({ message, type = "success", onClose }) => (
     type === "success" ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
   } border rounded-lg shadow-lg p-4 transition-all duration-300`}>
     <div className="flex items-start">
-      <div className={`flex-shrink-0 ${
+      <div className={`shrink-0 ${
         type === "success" ? "text-green-400" : "text-red-400"
       }`}>
         {type === "success" ? (
@@ -65,7 +65,7 @@ const Notification = ({ message, type = "success", onClose }) => (
       </div>
       <button
         onClick={onClose}
-        className={`ml-4 flex-shrink-0 ${
+        className={`ml-4 shrink-0 ${
           type === "success" ? "text-green-400 hover:text-green-500" : "text-red-400 hover:text-red-500"
         }`}
       >

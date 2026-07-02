@@ -104,7 +104,7 @@ function BursarSidebar() {
       {/* Sidebar */}
       <div 
         className={`
-          h-screen bg-gradient-to-br from-red-800 to-black
+          h-screen bg-linear-to-br from-red-800 to-black
           shadow-2xl border-r-0 transition-all duration-500 ease-in-out z-50
           ${isCollapsed ? 'w-20' : 'w-72'}
           /* Mobile styles */
@@ -132,7 +132,7 @@ function BursarSidebar() {
         {/* Header Section */}
         <div className="relative z-10">
           {/* Decorative top border */}
-          <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-red-500 to-blue-600"></div>
+          <div className="absolute top-0 left-0 right-0 h-2 bg-linear-to-r from-red-500 to-blue-600"></div>
           
           <div className={`
             flex items-center p-5 border-b border-red-700/30 bg-red-800/30 backdrop-blur-sm
@@ -211,16 +211,16 @@ function BursarSidebar() {
                   }}
                 >
                   {/* Shine effect on hover */}
-                  <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                  <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-linear-to-r from-transparent via-white/20 to-transparent"></div>
 
                   {/* Active indicator */}
                   {window.location.pathname === val.link && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-red-400 to-red-600 rounded-r-full"></div>
+                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-linear-to-b from-red-400 to-red-600 rounded-r-full"></div>
                   )}
 
                   {/* Icon */}
                   <div className={`
-                    flex-shrink-0 transition-all duration-300
+                    shrink-0 transition-all duration-300
                     ${isCollapsed ? 'text-2xl' : 'text-xl'}
                     drop-shadow-lg
                   `}>
@@ -242,7 +242,7 @@ function BursarSidebar() {
                   {!isCollapsed && val.subNav && (
                     <svg 
                       className={`
-                        w-4 h-4 transition-all duration-300 flex-shrink-0 drop-shadow-md
+                        w-4 h-4 transition-all duration-300 shrink-0 drop-shadow-md
                         ${openDropdown === key ? 'rotate-180' : ''}
                       `}
                       fill="none" 
@@ -273,7 +273,7 @@ function BursarSidebar() {
                           }}
                         >
                           {/* Shine effect */}
-                          <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                          <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-linear-to-r from-transparent via-white/20 to-transparent"></div>
                           
                           <div className={`
                             text-sm transition-all duration-200 drop-shadow-md

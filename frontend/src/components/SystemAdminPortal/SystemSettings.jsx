@@ -473,7 +473,7 @@ const SystemSettings = () => {
 
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-start">
-                  <AlertCircle className="h-5 w-5 text-blue-600 mr-2 flex-shrink-0" />
+                  <AlertCircle className="h-5 w-5 text-blue-600 mr-2 shrink-0" />
                   <div>
                     <p className="font-medium text-blue-800">Test Email Configuration</p>
                     <p className="text-sm text-blue-700 mt-1">
@@ -550,7 +550,7 @@ const SystemSettings = () => {
 
                 <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                   <div className="flex items-start">
-                    <AlertCircle className="h-5 w-5 text-amber-600 mr-2 flex-shrink-0" />
+                    <AlertCircle className="h-5 w-5 text-amber-600 mr-2 shrink-0" />
                     <div>
                       <p className="font-medium text-amber-800">Database Information</p>
                       <div className="mt-2 space-y-1 text-sm text-amber-700">
@@ -744,7 +744,7 @@ const SystemSettings = () => {
               <div className="space-y-4">
                 <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
                   <div className="flex items-start">
-                    <AlertCircle className="h-5 w-5 text-red-600 mr-2 flex-shrink-0" />
+                    <AlertCircle className="h-5 w-5 text-red-600 mr-2 shrink-0" />
                     <div>
                       <p className="font-medium text-red-800">Warning</p>
                       <p className="text-sm text-red-700 mt-1">

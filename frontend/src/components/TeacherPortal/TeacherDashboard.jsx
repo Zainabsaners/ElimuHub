@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { FiUsers, FiBookOpen, FiCalendar, FiActivity, FiRefreshCw, FiChevronRight } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../Authentication/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme } from "@/hooks/useTheme";
 
 const TeacherDashboard = () => {
   const { authenticatedFetch } = useAuth();

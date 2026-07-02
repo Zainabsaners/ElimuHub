@@ -35,11 +35,11 @@ const Toast = React.memo(({ show, message, type, onClose }) => {
   if (!show) return null;
 
   const bgColor = {
-    success: 'bg-gradient-to-r from-green-500 to-emerald-500',
-    error: 'bg-gradient-to-r from-red-500 to-rose-500',
-    info: 'bg-gradient-to-r from-indigo-500 to-indigo-500',
-    warning: 'bg-gradient-to-r from-yellow-500 to-amber-500'
-  }[type] || 'bg-gradient-to-r from-indigo-500 to-indigo-500';
+    success: 'bg-linear-to-r from-green-500 to-emerald-500',
+    error: 'bg-linear-to-r from-red-500 to-rose-500',
+    info: 'bg-linear-to-r from-indigo-500 to-indigo-500',
+    warning: 'bg-linear-to-r from-yellow-500 to-amber-500'
+  }[type] || 'bg-linear-to-r from-indigo-500 to-indigo-500';
 
   const icon = {
     success: <FiCheckCircle className="text-white" size={20} />,
@@ -51,9 +51,9 @@ const Toast = React.memo(({ show, message, type, onClose }) => {
   return (
     <div className="fixed top-4 right-4 z-50 animate-slide-in">
       <div className={`${bgColor} text-white rounded-xl shadow-lg p-4 min-w-[300px] flex items-center gap-3`}>
-        <div className="flex-shrink-0">{icon}</div>
+        <div className="shrink-0">{icon}</div>
         <div className="flex-grow"><p className="font-medium">{message}</p></div>
-        <button onClick={onClose} className="flex-shrink-0 text-white hover:text-gray-200">
+        <button onClick={onClose} className="shrink-0 text-white hover:text-gray-200">
           <FiX size={18} />
         </button>
       </div>
@@ -524,7 +524,7 @@ const HelpSupport = () => {
                       <ol className="space-y-3">
                         {guide.steps.map((step, stepIndex) => (
                           <li key={stepIndex} className="flex items-start space-x-3">
-                            <span className="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full text-sm flex items-center justify-center font-semibold mt-0.5 flex-shrink-0">
+                            <span className="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full text-sm flex items-center justify-center font-semibold mt-0.5 shrink-0">
                               {stepIndex + 1}
                             </span>
                             <span className="text-gray-600 flex-1">{step}</span>
@@ -540,7 +540,7 @@ const HelpSupport = () => {
                 </div>
 
                 {/* Video Tutorials */}
-                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-xl p-6 text-white">
+                <div className="bg-linear-to-r from-indigo-600 to-indigo-700 rounded-xl p-6 text-white">
                   <div className="flex flex-col md:flex-row items-center justify-between">
                     <div className="mb-4 md:mb-0">
                       <h3 className="text-2xl font-bold mb-2 flex items-center gap-2">
@@ -652,7 +652,7 @@ const HelpSupport = () => {
         </div>
 
         {/* Bottom CTA */}
-        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-xl shadow-lg p-8 text-white text-center">
+        <div className="bg-linear-to-r from-indigo-600 to-indigo-700 rounded-xl shadow-lg p-8 text-white text-center">
           <h2 className="text-2xl md:text-3xl font-bold mb-4">Need Assistance?</h2>
           <p className="text-indigo-100 text-lg mb-6 max-w-2xl mx-auto">
             Our specialized support team is available to help with financial queries, system issues, and procedural guidance.

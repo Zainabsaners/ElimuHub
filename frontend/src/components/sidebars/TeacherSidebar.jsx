@@ -8,7 +8,7 @@ import {
   FiMoon
 } from 'react-icons/fi';
 import { useAuth } from '../Authentication/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme } from "@/hooks/useTheme";
 import { TeacherSidebarData } from '../../data/TeacherSidebarData';
 
 function TeacherSidebar() {
@@ -81,7 +81,7 @@ function TeacherSidebar() {
       {/* Sidebar */}
       <div 
         className={`
-          h-screen bg-gradient-to-b from-indigo-800 via-indigo-700 to-indigo-900 
+          h-screen bg-linear-to-b from-indigo-800 via-indigo-700 to-indigo-900 
           dark:from-gray-900 dark:via-gray-800 dark:to-gray-900
           shadow-2xl border-r border-indigo-600 dark:border-gray-700 transition-all duration-300 ease-in-out z-50
           ${isCollapsed ? 'w-20' : 'w-64'}
@@ -92,7 +92,7 @@ function TeacherSidebar() {
         {/* Header Section */}
         <div className="flex flex-col items-center p-4 border-b border-indigo-600/50 dark:border-gray-700/50">
           <div className="flex items-center space-x-3 w-full">
-            <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 border-2 border-white/20 dark:border-gray-600/30">
+            <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center shrink-0 border-2 border-white/20 dark:border-gray-600/30">
               <span className="text-white font-bold text-lg">E</span>
             </div>
             {!isCollapsed && (
@@ -147,7 +147,7 @@ function TeacherSidebar() {
                     }}
                   >
                     <div className={`
-                      flex-shrink-0 transition-colors duration-200
+                      shrink-0 transition-colors duration-200
                       ${isItemActive ? 'text-white' : 'text-indigo-200 dark:text-indigo-400 group-hover:text-white'}
                       ${isCollapsed ? 'text-xl' : 'text-lg'}
                     `}>
@@ -168,7 +168,7 @@ function TeacherSidebar() {
                     {!isCollapsed && val.subNav && (
                       <svg 
                         className={`
-                          w-4 h-4 transition-transform duration-200 flex-shrink-0
+                          w-4 h-4 transition-transform duration-200 shrink-0
                           ${isExpanded ? 'rotate-180' : ''}
                           ${isItemActive ? 'text-white' : 'text-indigo-200 dark:text-indigo-400'}
                         `}
@@ -202,7 +202,7 @@ function TeacherSidebar() {
                               }}
                             >
                               <div className={`
-                                flex-shrink-0 text-sm transition-colors duration-200
+                                shrink-0 text-sm transition-colors duration-200
                                 ${isSubItemActive ? 'text-white' : 'text-indigo-200 dark:text-indigo-400 group-hover:text-white'}
                               `}>
                                 {subVal.icon}
@@ -230,7 +230,7 @@ function TeacherSidebar() {
           {/* User Info - only when expanded */}
           {!isCollapsed && (
             <div className="flex items-center gap-3 px-3 py-2 mb-2 rounded-lg bg-white/5 dark:bg-white/5">
-              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
                 <span className="text-white text-sm font-medium">
                   {user?.first_name?.charAt(0) || 'T'}
                   {user?.last_name?.charAt(0) || ''}

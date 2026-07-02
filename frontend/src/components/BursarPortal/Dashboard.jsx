@@ -161,7 +161,7 @@ const BursarDashboard = () => {
         <div className="w-full px-4 md:px-6 py-4 md:py-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full">
             <div className="flex items-center gap-4 w-full md:w-auto">
-              <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+              <div className="w-16 h-16 md:w-20 md:h-20 bg-linear-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
                 <User className="w-10 h-10 text-white" />
               </div>
               <div className="flex-1">
@@ -217,7 +217,7 @@ const BursarDashboard = () => {
         {/* Stats Cards */}
         <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
           {/* Total Students */}
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg">
+          <div className="bg-linear-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold mb-2">Total Students</h3>
@@ -238,7 +238,7 @@ const BursarDashboard = () => {
           </div>
 
           {/* Total Revenue */}
-          <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg">
+          <div className="bg-linear-to-br from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold mb-2">Total Revenue</h3>
@@ -259,7 +259,7 @@ const BursarDashboard = () => {
           </div>
 
           {/* Today's Collections */}
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
+          <div className="bg-linear-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold mb-2">Today's Collections</h3>
@@ -280,7 +280,7 @@ const BursarDashboard = () => {
           </div>
 
           {/* Transaction Stats */}
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-6 rounded-xl shadow-lg">
+          <div className="bg-linear-to-br from-orange-500 to-orange-600 text-white p-6 rounded-xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold mb-2">Transactions</h3>
@@ -321,7 +321,7 @@ const BursarDashboard = () => {
               </button>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[600px]">
+              <table className="w-full min-w-150">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -452,7 +452,7 @@ const BursarDashboard = () => {
         {/* Additional Stats */}
         <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Collection Efficiency */}
-          <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200 rounded-xl p-6">
+          <div className="bg-linear-to-br from-indigo-50 to-indigo-100 border border-indigo-200 rounded-xl p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Collection Efficiency</h3>
             <div className="text-center">
               <div className="text-3xl font-bold text-indigo-600 mb-2">
@@ -469,7 +469,7 @@ const BursarDashboard = () => {
           </div>
 
           {/* System Status */}
-          <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-xl p-6">
+          <div className="bg-linear-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-xl p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">System Status</h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -481,7 +481,7 @@ const BursarDashboard = () => {
           </div>
 
           {/* Quick Actions */}
-          <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200 rounded-xl p-6">
+          <div className="bg-linear-to-br from-indigo-50 to-indigo-100 border border-indigo-200 rounded-xl p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
             <button 
                 onClick={() => navigate('/BursarPortal/Payment')} // Full path for HashRouter

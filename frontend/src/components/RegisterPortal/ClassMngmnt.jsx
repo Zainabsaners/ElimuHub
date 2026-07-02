@@ -667,19 +667,19 @@ function ClassManagement() {
               <h4 className="font-medium text-blue-800 mb-2">Class Management Information</h4>
               <ul className="text-sm text-blue-700 space-y-1.5">
                 <li className="flex items-start">
-                  <CheckCircle className="h-4 w-4 text-blue-500 mt-0.5 mr-2 flex-shrink-0" />
+                  <CheckCircle className="h-4 w-4 text-blue-500 mt-0.5 mr-2 shrink-0" />
                   Classes are used for student placement and timetable scheduling
                 </li>
                 <li className="flex items-start">
-                  <CheckCircle className="h-4 w-4 text-blue-500 mt-0.5 mr-2 flex-shrink-0" />
+                  <CheckCircle className="h-4 w-4 text-blue-500 mt-0.5 mr-2 shrink-0" />
                   Each class requires a unique class code for identification
                 </li>
                 <li className="flex items-start">
-                  <CheckCircle className="h-4 w-4 text-blue-500 mt-0.5 mr-2 flex-shrink-0" />
+                  <CheckCircle className="h-4 w-4 text-blue-500 mt-0.5 mr-2 shrink-0" />
                   Class teachers can be assigned to manage specific classes
                 </li>
                 <li className="flex items-start">
-                  <CheckCircle className="h-4 w-4 text-blue-500 mt-0.5 mr-2 flex-shrink-0" />
+                  <CheckCircle className="h-4 w-4 text-blue-500 mt-0.5 mr-2 shrink-0" />
                   Deactivated classes won't appear in student enrollment options
                 </li>
               </ul>

@@ -122,7 +122,7 @@ const HelpSupport = () => {
   })).filter(category => category.questions.length > 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 w-full p-4 md:p-6">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 w-full p-4 md:p-6">
       <div className="w-full max-w-full mx-auto">
         {/* Header Section */}
         <div className="text-center mb-8 md:mb-12">
@@ -231,7 +231,7 @@ const HelpSupport = () => {
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">Contact Support Team</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {contactInfo.map((contact, index) => (
-                    <div key={index} className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg">
+                    <div key={index} className="bg-linear-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg">
                       <div className="text-3xl mb-4">{contact.icon}</div>
                       <h3 className="text-xl font-semibold mb-3">{contact.department}</h3>
                       <div className="space-y-2">
@@ -306,7 +306,7 @@ const HelpSupport = () => {
                 </div>
 
                 {/* Video Tutorials */}
-                <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-6 text-white">
+                <div className="bg-linear-to-r from-purple-500 to-pink-500 rounded-xl p-6 text-white">
                   <div className="flex flex-col md:flex-row items-center justify-between">
                     <div className="mb-4 md:mb-0">
                       <h3 className="text-2xl font-bold mb-2">Video Tutorials</h3>
@@ -400,7 +400,7 @@ const HelpSupport = () => {
         </div>
 
         {/* Bottom CTA */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-8 text-white text-center">
+        <div className="bg-linear-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-8 text-white text-center">
           <h2 className="text-2xl md:text-3xl font-bold mb-4">Still Need Help?</h2>
           <p className="text-blue-100 text-lg mb-6 max-w-2xl mx-auto">
             Our support team is ready to assist you with any questions or issues you may encounter.
