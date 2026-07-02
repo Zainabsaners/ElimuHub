@@ -84,7 +84,7 @@ const Login = () => {
             />
           </div>
           <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight mb-1">{schoolName}</h2>
-          <p className="text-indigo-600 text-xs font-semibold tracking-wider uppercase mb-6">Together We Succeed</p>
+          <p className="text-indigo-600 text-xs font-semibold tracking-wider uppercase mb-6">Your Gateway to Knowledge.</p>
           
           {authError && (
             <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-xl mt-4 flex items-center text-sm text-left">
@@ -94,6 +94,11 @@ const Login = () => {
               <span>{authError}</span>
             </div>
           )}
+        </div>
+        <div className="mt-6">
+          <p className="text-sm text-gray-500 text-center mt-1">
+            Enter your credentials to login
+          </p>
         </div>
 
         {/* Login Form */}
