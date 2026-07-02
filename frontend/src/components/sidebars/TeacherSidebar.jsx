@@ -8,7 +8,7 @@ import {
   FiMoon
 } from 'react-icons/fi';
 import { useAuth } from '../Authentication/AuthContext';
-import { useTheme } from "@/hooks/useTheme";
+//import { useTheme } from "@/hooks/useTheme";
 import { TeacherSidebarData } from '../../data/TeacherSidebarData';
 
 function TeacherSidebar() {
@@ -17,7 +17,7 @@ function TeacherSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+ // const { theme, toggleTheme } = useTheme();
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
@@ -248,7 +248,7 @@ function TeacherSidebar() {
           )}
 
           {/* Theme Toggle */}
-          <div
+          {/* <div
             className={`
               flex items-center w-full p-3 rounded-xl cursor-pointer transition-all duration-200 group
               ${isCollapsed ? 'justify-center' : 'justify-start'}
@@ -266,7 +266,7 @@ function TeacherSidebar() {
                 {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
               </span>
             )}
-          </div>
+          </div>*/}
 
           {/* Logout Button */}
           <div
