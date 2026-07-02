@@ -29,6 +29,7 @@ import FeeStatement from './components/StudentPortal/Finance/FeeStatement';
 import Attendance from "./components/StudentPortal/Attendance";
 import Timetable from './components/StudentPortal/Timetable';
 import Profile from "./components/StudentPortal/profile";
+import PaymentHistory from "./components/StudentPortal/Finance/PaymentHistory";
 import Settings from "./components/FinancePortal/Settings";
 import Activities from "./components/StudentPortal/Activities/Activities";
 import Notifications from "./components/StudentPortal/Communication/notification";
@@ -139,6 +140,11 @@ function App() {
               <Route path="/student/finance" element={
                 <ProtectedRoute allowedRoles={['student']}>
                   <FeeStatement />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/finance/payments" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <PaymentHistory />
                 </ProtectedRoute>
               } />
               <Route path="/student/academics/courses" element={
