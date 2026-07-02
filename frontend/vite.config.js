@@ -7,6 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
+  
   server: {
     port: 5173,
     proxy: {
@@ -17,13 +18,27 @@ export default defineConfig({
       },
     },
   },
+  
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
   },
+  
   build: {
     outDir: 'dist',
     sourcemap: false,
+    // Performance optimization settings
+    chunkSizeWarningLimit: 1000, 
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // Move all node_modules into a separate 'vendor' chunk
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
+        }
+      }
+    }
   },
 });

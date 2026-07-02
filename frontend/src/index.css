@@ -3,10 +3,9 @@
 /* ===== BASE STYLES & GLOBAL OVERRIDES ===== */
 @layer base {
   body {
-    /* Standard light mode background and text */
-    @apply bg-gray-50 text-gray-900 transition-colors duration-300;
+    @apply bg-gray-900 text-gray-100 transition-colors duration-300;
   }
-  
+   
   .dark body {
     /* Standard dark mode background and text */
     @apply bg-gray-900 text-gray-100;
