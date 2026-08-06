@@ -18,6 +18,7 @@ Including another URLconf
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.http import JsonResponse
 from django.urls import path, include
 #from django.views.decorators.csrf import ensure_csrf_cookie
 #from django.http import JsonResponse
@@ -30,13 +31,20 @@ from rest_framework_simplejwt.views import (
 #@ensure_csrf_cookie
 #def get_csrf_token(request):
    # return JsonResponse({'detail': 'CSRF cookie set'})
+   
+def api_root_view(request):
+    return JsonResponse({
+        'status': 'online',
+        'message': 'Welcome to the School Server API',
+        'documentation': "/ElimuHub/backend/school_server/docs/"
+        })
 
 urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
 
-    
+    path('api/', api_root_view, name='api-root'),
     path('admin/', admin.site.urls),
     path('', include('school_app.urls')),
     #path('api/csrf/', get_csrf_token, name='csrf'),
