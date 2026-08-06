@@ -44,7 +44,7 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
 
-    path('api/', api_root_view, name='api-root'),
+    path('', api_root_view, name='api-root'),
     path('admin/', admin.site.urls),
     path('', include('school_app.urls')),
     #path('api/csrf/', get_csrf_token, name='csrf'),
